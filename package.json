@@ -1,0 +1,75 @@
+{
+  "name": "@nanostores/sql",
+  "version": "0.0.0",
+  "description": "",
+  "keywords": [
+    "migration",
+    "nanostores",
+    "preact",
+    "react",
+    "sqlite",
+    "vue"
+  ],
+  "license": "MIT",
+  "author": "Andrey Sitnik <andrey@sitnik.es>",
+  "repository": "nanostores/sql",
+  "funding": [
+    {
+      "type": "github",
+      "url": "https://github.com/sponsors/ai"
+    }
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "test:lint": "oxlint .",
+    "test:coverage": "pnpm bnt --coverage 100 --coverage-exclude 'test/*'",
+    "test:types": "check-dts",
+    "test:size": "size-limit",
+    "test:build": "vite build ./test/demo",
+    "test": "pnpm run /^test:/",
+    "start": "vite ./test/demo"
+  },
+  "devDependencies": {
+    "@logux/oxc-configs": "^0.2.2",
+    "@size-limit/preset-small-lib": "^12.0.1",
+    "@types/node": "^25.5.0",
+    "actions-up": "^1.12.0",
+    "better-node-test": "^0.8.4",
+    "check-dts": "^1.0.0",
+    "clean-publish": "^6.0.5",
+    "globals": "^17.4.0",
+    "happy-dom": "^20.8.9",
+    "multiocular": "^0.8.2",
+    "nanodelay": "^2.0.2",
+    "nanostores": "^1.2.0",
+    "oxlint": "^1.58.0",
+    "oxlint-tsgolint": "^0.18.1",
+    "size-limit": "^12.0.1",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.3"
+  },
+  "peerDependencies": {
+    "nanostores": "^0.9.0 || ^0.10.0 || ^0.11.0 || ^1.0.0"
+  },
+  "size-limit": [
+    {
+      "name": "Atom",
+      "import": {
+        "./index.js": "{ openDb }"
+      },
+      "limit": "1 KB"
+    }
+  ],
+  "engines": {
+    "node": "^22.0.0 || >=24.0.0"
+  },
+  "clean-publish": {
+    "cleanDocs": true
+  }
+}
