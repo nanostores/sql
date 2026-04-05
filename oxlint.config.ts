@@ -17,7 +17,10 @@ export default defineConfig({
     {
       files: ['test/demo/*.ts'],
       rules: {
-        'no-console': 'off'
+        'no-console': 'off',
+        'typescript/no-unsafe-assignment': 'off',
+        'typescript/no-unsafe-call': 'off',
+        'typescript/no-unsafe-member-access': 'off'
       }
     }
   ]
