@@ -28,6 +28,7 @@
     ".": "./index.js",
     "./expo": "./expo/index.js",
     "./sqlocal": "./sqlocal/index.js",
+    "./node": "./node/index.js",
     "./pglite": "./pglite/index.js",
     "./package.json": "./package.json"
   },

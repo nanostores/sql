@@ -83,6 +83,19 @@ import { expoDriver } from '@nanostores/sql/expo'
 export const db = openDb(expoDriver('app.sqlite'))
 ```
 
+### Node.js
+
+For CI test you can use `nodeDriver`.
+
+`node:sqlite` has no live queries and we use hacks for that, so it is not very efficient.
+
+```ts
+import { openDb } from '@nanostores/sql'
+import { nodeDriver } from '@nanostores/sql/node'
+
+export const db = openDb(nodeDriver(':memory:'))
+```
+
 ### PGLite
 
 [PGLite](https://pglite.dev) to use PostgreSQL rich features in browsers:
