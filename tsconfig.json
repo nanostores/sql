@@ -14,5 +14,5 @@
     "strict": true,
     "target": "es2024"
   },
-  "exclude": ["**/errors.ts"]
+  "exclude": ["**/errors.ts", "test/demo/dist"]
 }

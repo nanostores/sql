@@ -35,7 +35,7 @@
     "test:size": "size-limit",
     "test:build": "vite build ./test/demo",
     "test": "pnpm run /^test:/",
-    "start": "vite ./test/demo"
+    "start": "vite ./test/demo --host 0.0.0.0"
   },
   "devDependencies": {
     "@logux/oxc-configs": "^0.2.2",

@@ -1,3 +1,3 @@
 import { openDb } from '../../index.js'
 
-openDb()
+alert(typeof openDb)

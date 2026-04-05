@@ -4,28 +4,30 @@ export interface DrizzleQuery {
   toSQL(): { sql: string; params: unknown[] }
 }
 
-export interface Database<Driver = unknown> {
+export interface Database<DBDriver extends Driver = Driver> {
   store<Value = unknown>(
     query: TemplateStringsArray,
     ...params: string
   ): ReadonlyAtom<SQliteStoreValue<Value>>
-  store<Value = unknown>(query: DrizzleQuery): ReadonlyAtom<SQliteStoreValue<Value>>
+  store<Value = unknown>(
+    query: DrizzleQuery
+  ): ReadonlyAtom<SQliteStoreValue<Value>>
 
-  transaction<T>(callback: (tx: Database<Driver>) => Promise<T>): Promise<T>
+  transaction<T>(callback: (tx: Database<DBDriver>) => Promise<T>): Promise<T>
 
   exec<Value>(query: TemplateStringsArray, ...params: string): Promise<Value>
   exec<Value>(query: DrizzleQuery): Promise<Value>
 
   opened: boolean
 
-  driver: Driver
+  driver: DBDriver
 
   close(): void
 }
 
-export function openDb<SelectedDriver extends Driver>(
-  driver: SelectedDriver
-): Database<SelectedDriver>
+export function openDb<DBDriver extends Driver>(
+  driver: DBDriver
+): Database<DBDriver>
 
 type Unsubscribe = () => void
 
