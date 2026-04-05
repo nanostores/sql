@@ -149,3 +149,41 @@ setLoader(false)
 ```
 
 ## Usage with Drizzle
+
+Install [Drizzle ORM](https://orm.drizzle.team/):
+
+```bash
+npm add drizzle-orm
+```
+
+Define your schema:
+
+```ts
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+
+export const usersTable = sqliteTable('users', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  name: text().notNull(),
+  email: text().notNull()
+})
+```
+
+Create a Drizzle instance backed by the same driver:
+
+```ts
+import { toDrizzle } from '@nanostores/sql'
+import { drizzle } from 'drizzle-orm/sqlite-proxy'
+
+export const drizzleDb = drizzle(toDrizzle(db))
+```
+
+Pass Drizzle query builders to `db.store()` or `db.exec()`:
+
+```ts
+const $users = db.store<User>(
+  drizzleDb
+    .select()
+    .from(usersTable)
+    .where(like(usersTable.name, `%${name}%`))
+)
+```
