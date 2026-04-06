@@ -303,7 +303,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
           .where(eq(postsTable.id, 1))
       )
 
-      let rows = await loadValue(db!.store(drizzleDb.select().from(postsTable)))
+      let rows = await loadValue(db.store(drizzleDb.select().from(postsTable)))
       deepEqual(rows, [{ id: 1, title: 'updated' }])
     })
 
