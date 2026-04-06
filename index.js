@@ -90,7 +90,8 @@ export function toDrizzle(db) {
     }
     return new Promise(resolve => {
       let done = false
-      let unsubscribe = db.driver.subscribe(sql, params, rows => {
+      let unsubscribe
+      unsubscribe = db.driver.subscribe(sql, params, rows => {
         done = true
         resolve({ rows: rows.map(row => Object.values(row)) })
         if (unsubscribe) unsubscribe()

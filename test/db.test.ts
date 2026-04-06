@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
-import { STORE_UNMOUNT_DELAY } from 'nanostores'
+import { type ReadableAtom, STORE_UNMOUNT_DELAY } from 'nanostores'
 import { deepEqual, equal, match, notEqual } from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
@@ -15,6 +15,23 @@ import {
 } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 import { pgliteDriver } from '../pglite/index.js'
+
+function loadValue<Value>(
+  store: ReadableAtom<SqlStoreValue<Value>>
+): Promise<Value> {
+  return new Promise<Value>(resolve => {
+    let done = false
+    let unsubscribe: () => void
+    unsubscribe = store.subscribe(state => {
+      if (!state.isLoading) {
+        resolve(state.value)
+        done = true
+        if (unsubscribe) unsubscribe()
+      }
+    })
+    if (done) unsubscribe()
+  })
+}
 
 let postsTable = sqliteTable('posts', {
   id: integer().primaryKey({ autoIncrement: true }),
@@ -64,7 +81,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await db?.close()
     })
 
-    test('store returns reactive atom', async () => {
+    test('returns reactive atom', async () => {
       db = openDb(setup.create())
       await createTable(db, 'items', 'title TEXT')
       await db.exec`INSERT INTO items (title) VALUES (${'first'})`
@@ -99,7 +116,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       equal($other, $items)
     })
 
-    test('transaction commits', async () => {
+    test('commits transactions', async () => {
       db = openDb(setup.create())
       await createTable(db, 'logs', 'msg TEXT')
 
@@ -171,7 +188,6 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await createTable(db, 'secrets', 'data TEXT')
       await db.exec`INSERT INTO secrets (data) VALUES (${'top-secret'})`
 
-      // Attempt injection via a parameterized value
       let injection = "' OR '1'='1"
       let injected: SqlStoreValue<unknown[]>[] = []
       let $secrets = db.store`SELECT * FROM secrets WHERE data = ${injection}`
@@ -188,7 +204,6 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         { isLoading: false, value: [] }
       ])
 
-      // Test SQL injection in exec — the injected string is treated as a value, not SQL
       let execInjection = "'); DROP TABLE secrets; --"
       await db.exec`INSERT INTO secrets (data) VALUES (${execInjection})`
 
@@ -211,7 +226,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
-    test('unsubscribe stops updates', async () => {
+    test('unsubscribes', async () => {
       db = openDb(setup.create())
 
       await createTable(db, 'items', 'title TEXT')
@@ -273,34 +288,14 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
-    test('supports Drizzle in store', async () => {
+    test('supports Drizzle', async () => {
       db = openDb(setup.create())
+      await createTable(db, 'posts', 'title TEXT NOT NULL')
       let drizzleDb = drizzle(toDrizzle(db))
 
-      await createTable(db, 'posts', 'title TEXT NOT NULL')
-      await db.exec`INSERT INTO posts (title) VALUES (${'hello'})`
-
-      let rows = await new Promise<unknown>(resolve => {
-        let $posts = db!.store(
-          drizzleDb
-            .select()
-            .from(postsTable)
-            .where(eq(postsTable.title, 'hello'))
-        )
-        $posts.subscribe(state => {
-          if (!state.isLoading) resolve(state.value)
-        })
-      })
-
-      deepEqual(rows, [{ id: 1, title: 'hello' }])
-    })
-
-    test('supports Drizzle in exec', async () => {
-      db = openDb(setup.create())
-      let drizzleDb = drizzle(toDrizzle(db))
-
-      await createTable(db, 'posts', 'title TEXT NOT NULL')
-      await db.exec`INSERT INTO posts (title) VALUES (${'old'})`
+      await db.exec(
+        drizzleDb.insert(postsTable).values({ id: 1, title: 'old' })
+      )
       await db.exec(
         drizzleDb
           .update(postsTable)
@@ -308,17 +303,11 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
           .where(eq(postsTable.id, 1))
       )
 
-      let rows = await new Promise<unknown>(resolve => {
-        let $posts = db!.store`SELECT * FROM posts`
-        $posts.subscribe(state => {
-          if ('value' in state) resolve(state.value)
-        })
-      })
-
+      let rows = await loadValue(db!.store(drizzleDb.select().from(postsTable)))
       deepEqual(rows, [{ id: 1, title: 'updated' }])
     })
 
-    test('toDrizzle executes queries', async () => {
+    test('generates compatible Drizzle database', async () => {
       db = openDb(setup.create())
       let proxy = toDrizzle(db)
 
