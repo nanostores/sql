@@ -64,7 +64,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await db?.close()
     })
 
-    test(`store returns reactive atom`, async () => {
+    test('store returns reactive atom', async () => {
       db = openDb(setup.create())
       await createTable(db, 'items', 'title TEXT')
       await db.exec`INSERT INTO items (title) VALUES (${'first'})`
@@ -98,7 +98,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
-    test(`transaction commits`, async () => {
+    test('transaction commits', async () => {
       db = openDb(setup.create())
       await createTable(db, 'logs', 'msg TEXT')
 
@@ -164,7 +164,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       }
     })
 
-    test(`prevents SQL injection`, async () => {
+    test('prevents SQL injection', async () => {
       db = openDb(setup.create())
 
       await createTable(db, 'secrets', 'data TEXT')
@@ -210,7 +210,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
-    test(`unsubscribe stops updates`, async () => {
+    test('unsubscribe stops updates', async () => {
       db = openDb(setup.create())
 
       await createTable(db, 'items', 'title TEXT')
@@ -238,7 +238,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       })
     })
 
-    test(`supports Drizzle in store`, async () => {
+    test('supports Drizzle in store', async () => {
       db = openDb(setup.create())
       let drizzleDb = drizzle(toDrizzle(db))
 
@@ -260,7 +260,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       deepEqual(rows, [{ id: 1, title: 'hello' }])
     })
 
-    test(`supports Drizzle in exec`, async () => {
+    test('supports Drizzle in exec', async () => {
       db = openDb(setup.create())
       let drizzleDb = drizzle(toDrizzle(db))
 
@@ -283,7 +283,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       deepEqual(rows, [{ id: 1, title: 'updated' }])
     })
 
-    test(`toDrizzle executes queries`, async () => {
+    test('toDrizzle executes queries', async () => {
       db = openDb(setup.create())
       let proxy = toDrizzle(db)
 
@@ -301,7 +301,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(50)
     })
 
-    test(`closes database`, async () => {
+    test('closes database', async () => {
       db = openDb(setup.create())
       equal(db.opened, true)
       await db.close()
