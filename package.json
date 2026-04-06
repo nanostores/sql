@@ -42,6 +42,7 @@
     "start": "vite ./test/demo --host 0.0.0.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.4.3",
     "@logux/oxc-configs": "^0.2.2",
     "@size-limit/preset-small-lib": "^12.0.1",
     "@types/node": "^25.5.0",
@@ -57,11 +58,26 @@
     "oxlint": "^1.58.0",
     "oxlint-tsgolint": "^0.18.1",
     "size-limit": "^12.0.1",
+    "sqlocal": "^0.17.0",
     "typescript": "^6.0.2",
     "vite": "^8.0.3"
   },
   "peerDependencies": {
-    "nanostores": "^0.9.0 || ^0.10.0 || ^0.11.0 || ^1.0.0"
+    "@electric-sql/pglite": ">=0.4.0",
+    "expo-sqlite": ">=14.0.0",
+    "nanostores": "^0.9.0 || ^0.10.0 || ^0.11.0 || ^1.0.0",
+    "sqlocal": ">=0.12.0"
+  },
+  "peerDependenciesMeta": {
+    "@electric-sql/pglite": {
+      "optional": true
+    },
+    "expo-sqlite": {
+      "optional": true
+    },
+    "sqlocal": {
+      "optional": true
+    }
   },
   "size-limit": [
     {

@@ -82,7 +82,7 @@ export interface Database<DBDriver extends Driver = Driver> {
   /**
    * Close the database connection.
    */
-  close(): void
+  close(): Promise<void>
 }
 
 /**
@@ -125,7 +125,7 @@ export interface Driver {
 
   transaction<T>(callback: (tx: DriverTransaction) => Promise<T>): Promise<T>
 
-  close(): void
+  close(): void | Promise<void>
 }
 
 export type MigrationStatusValue =

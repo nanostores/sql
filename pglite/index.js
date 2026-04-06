@@ -45,7 +45,7 @@ export function pgliteDriver(uri) {
     },
 
     close() {
-      db.close()
+      return db.close()
     }
   }
   return driver
