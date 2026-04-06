@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { STORE_UNMOUNT_DELAY } from 'nanostores'
-import { deepEqual, equal, match } from 'node:assert/strict'
+import { deepEqual, equal, match, notEqual } from 'node:assert/strict'
 import { afterEach, describe, test } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
 
@@ -96,6 +96,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
           ]
         }
       ])
+
+      let $other = db.store<Item>`SELECT * FROM items ORDER BY id`
+      equal($other, $items)
     })
 
     test('transaction commits', async () => {
@@ -236,6 +239,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         isLoading: false,
         value: [{ id: 1, title: 'first' }]
       })
+
+      let $other = db.store<Item>`SELECT * FROM items ORDER BY id`
+      notEqual($other, $items)
     })
 
     test('supports Drizzle in store', async () => {

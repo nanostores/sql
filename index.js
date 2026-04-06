@@ -3,43 +3,54 @@ import { atom, onMount } from 'nanostores'
 function parseQuery(query, params) {
   if ('toSQL' in query) {
     let q = query.toSQL()
-    return [q.sql, q.params]
+    let full = q.sql + JSON.stringify(q.params)
+    return [q.sql, q.params, full]
   }
   let sql = query[0]
+  let full = query[0]
   for (let i = 0; i < params.length; i++) {
     sql += '?' + query[i + 1]
+    full += JSON.stringify(params[i]) + query[i + 1]
   }
-  return [sql, params]
+  return [sql, params, full]
 }
 
 export function openDb(rootDriver) {
+  let cache = new Map()
+
   function createDb(driver) {
     let db = {
       opened: true,
       driver,
 
       store(query, ...rest) {
-        let [sql, params] = parseQuery(query, rest)
-        let $store = atom({ isLoading: true })
-        if (!db.opened) return $store
-        let currentJSON
-        let subscribed = false
-        onMount($store, () => {
-          subscribed = true
-          let unbind = driver.subscribe(sql, params, rows => {
-            if (!subscribed) return
-            let prevJSON = currentJSON
-            currentJSON = JSON.stringify(rows)
-            if (!$store.value || prevJSON !== currentJSON) {
-              $store.set({ isLoading: false, value: rows })
+        let [sql, params, cacheKey] = parseQuery(query, rest)
+        if (cache.has(cacheKey)) {
+          return cache.get(cacheKey)
+        } else {
+          let $store = atom({ isLoading: true })
+          if (!db.opened) return $store
+          let currentJSON
+          let subscribed = false
+          onMount($store, () => {
+            subscribed = true
+            let unbind = driver.subscribe(sql, params, rows => {
+              if (!subscribed) return
+              let prevJSON = currentJSON
+              currentJSON = JSON.stringify(rows)
+              if (!$store.value || prevJSON !== currentJSON) {
+                $store.set({ isLoading: false, value: rows })
+              }
+            })
+            return () => {
+              cache.delete(cacheKey)
+              subscribed = false
+              unbind()
             }
           })
-          return () => {
-            subscribed = false
-            unbind()
-          }
-        })
-        return $store
+          cache.set(cacheKey, $store)
+          return $store
+        }
       },
 
       exec(query, ...rest) {
