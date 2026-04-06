@@ -13,7 +13,7 @@ export function pgliteDriver(uri) {
     subscribe(query, params, cb) {
       let listener
       let unsubscribed = false
-      db.waitReady
+      void db.waitReady
         .then(() => {
           return db.live.query(toPostgres(query), params, res => {
             cb(res.rows)
