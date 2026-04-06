@@ -68,7 +68,16 @@ import { sqlocalDriver } from '@nanostores/sql/sqlocal'
 export const db = openDb(sqlocalDriver('app.sqlite'))
 ```
 
-TODO: Vite headers
+Add a worker workaround to Vite (see [docs](https://github.com/DallasHoff/sqlocal/blob/main/README.md#cross-origin-isolation)):
+
+```ts
+import { defineConfig } from 'vite'
+import sqlocal from 'sqlocal/vite'
+
+export default defineConfig({
+  plugins: [sqlocal()]
+})
+```
 
 ### Expo
 
@@ -202,3 +211,43 @@ const $users = db.store<User>(
     .where(like(usersTable.name, `%${name}%`))
 )
 ```
+
+### Migrations with Drizzle
+
+Install [Drizzle Kit](https://orm.drizzle.team/docs/kit-overview):
+
+```bash
+npm add --save-dev drizzle-kit
+```
+
+Generate SQL migration files from your schema:
+
+```bash
+npx drizzle-kit generate
+```
+
+This creates SQL files in `./drizzle` (e.g. `0000_create_users.sql`,
+`0001_add_posts.sql`). Import them as raw strings and apply
+with `migrateIfNeeded`:
+
+```ts
+import { migrateIfNeeded } from '@nanostores/sql'
+
+import migration0000 from './drizzle/0000_create_users.sql?raw'
+import migration0001 from './drizzle/0001_add_posts.sql?raw'
+
+const migrations = [migration0000, migration0001]
+
+const $migrationStatus = migrateIfNeeded(
+  db,
+  migrations.length,
+  async prevVersion => {
+    for (let i = Math.max(0, prevVersion); i < migrations.length; i++) {
+      await db.driver.exec(migrations[i], [])
+    }
+  }
+)
+```
+
+When you update your Drizzle schema, run `npx drizzle-kit generate` again,
+import the new file, and append it to `migrations`.
