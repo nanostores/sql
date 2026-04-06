@@ -133,23 +133,20 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       })
       await setTimeout(50)
 
-      // node.js has limited transaction support
-      if (driverName !== 'node') {
-        deepEqual(values, [
-          { isLoading: true },
-          {
-            isLoading: false,
-            value: []
-          },
-          {
-            isLoading: false,
-            value: [
-              { id: 1, msg: 'one' },
-              { id: 2, msg: 'two' }
-            ]
-          }
-        ])
-      }
+      deepEqual(values, [
+        { isLoading: true },
+        {
+          isLoading: false,
+          value: []
+        },
+        {
+          isLoading: false,
+          value: [
+            { id: 1, msg: 'one' },
+            { id: 2, msg: 'two' }
+          ]
+        }
+      ])
 
       let error: Error | undefined
       try {
@@ -163,23 +160,20 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       match(error!.message, /wrongNameColumn/i)
       await setTimeout(50)
 
-      // node.js has limited transaction support
-      if (driverName !== 'node') {
-        deepEqual(values, [
-          { isLoading: true },
-          {
-            isLoading: false,
-            value: []
-          },
-          {
-            isLoading: false,
-            value: [
-              { id: 1, msg: 'one' },
-              { id: 2, msg: 'two' }
-            ]
-          }
-        ])
-      }
+      deepEqual(values, [
+        { isLoading: true },
+        {
+          isLoading: false,
+          value: []
+        },
+        {
+          isLoading: false,
+          value: [
+            { id: 1, msg: 'one' },
+            { id: 2, msg: 'two' }
+          ]
+        }
+      ])
     })
 
     test('prevents SQL injection', async () => {

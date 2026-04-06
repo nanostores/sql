@@ -41,7 +41,16 @@ export function nodeDriver(filename) {
     async transaction(callback) {
       db.exec('BEGIN')
       try {
-        let result = await callback(driver)
+        let tx = {
+          subscribe: driver.subscribe,
+          exec(query, params) {
+            return new Promise(resolve => {
+              let result = db.prepare(query).run(...params)
+              resolve(result)
+            })
+          }
+        }
+        let result = await callback(tx)
         db.exec('COMMIT')
         notifySubscribers()
         return result
