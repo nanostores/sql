@@ -1,0 +1,11 @@
+{
+  "expo": {
+    "name": "Nano Stores SQL Demo",
+    "slug": "demo-rn",
+    "version": "0.0.0",
+    "platforms": ["web"],
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}

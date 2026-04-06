@@ -1,4 +1,3 @@
-import { expoDriver } from '../../expo/index.js'
 import {
   migrateIfNeeded,
   openDb,
@@ -18,7 +17,6 @@ interface Counter {
 
 let drivers: Record<string, (name: string) => Driver> = {
   sqlocal: sqlocalDriver,
-  expo: expoDriver,
   pglite: pgliteDriver
 }
 

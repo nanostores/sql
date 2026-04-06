@@ -1,2 +1,5 @@
 node_modules/
-test/demo/dist/
+test/demo-vite/dist/
+test/demo-metro/.expo/
+test/demo-metro/dist/
+test/demo-metro/node_modules/

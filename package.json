@@ -37,9 +37,12 @@
     "test:coverage": "pnpm bnt --coverage 100 --coverage-exclude 'test/*'",
     "test:types": "check-dts",
     "test:size": "size-limit",
-    "test:build": "vite build ./test/demo",
+    "test:build:rest": "vite build ./test/demo-vite",
+    "test:build:metro": "cd test/demo-metro && pnpm expo export --platform web",
     "test": "pnpm run /^test:/",
-    "start": "vite ./test/demo --host 0.0.0.0"
+    "start:vite": "vite ./test/demo-vite --host 0.0.0.0",
+    "start:metro": "cd test/demo-metro && pnpm expo start --web --port 5174",
+    "start": "pnpm run /^start:/"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.4.3",

@@ -15,7 +15,7 @@ export default defineConfig({
       }
     },
     {
-      files: ['test/demo/*.ts'],
+      files: ['test/demo-vite/*.ts'],
       rules: {
         'no-console': 'off',
         'typescript/no-unsafe-assignment': 'off',
