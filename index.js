@@ -103,7 +103,6 @@ export function toDrizzle(db) {
 
 const STORAGE_KEY = 'nanostores-sql:version'
 
-/* node:coverage disable */
 export function migrateIfNeeded(db, version, migrate) {
   let $status = atom({ applying: true })
 
@@ -133,4 +132,3 @@ export function migrateIfNeeded(db, version, migrate) {
 
   return $status
 }
-/* node:coverage enable */
