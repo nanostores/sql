@@ -68,6 +68,8 @@ import { sqlocalDriver } from '@nanostores/sql/sqlocal'
 export const db = openDb(sqlocalDriver('app.sqlite'))
 ```
 
+TODO: Vite headers
+
 ### Expo
 
 [Expo](https://docs.expo.dev/versions/latest/sdk/sqlite/) for React Native:

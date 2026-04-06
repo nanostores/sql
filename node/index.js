@@ -1,5 +1,9 @@
 import { DatabaseSync } from 'node:sqlite'
 
+function toRows(rows) {
+  return rows.map(row => ({ ...row }))
+}
+
 export function nodeDriver(filename) {
   let db = new DatabaseSync(filename)
   let subscribers = new Map()
@@ -8,7 +12,7 @@ export function nodeDriver(filename) {
   function notifySubscribers() {
     for (let [, sub] of subscribers) {
       let rows = db.prepare(sub.query).all(...sub.params)
-      sub.cb(rows)
+      sub.cb(toRows(rows))
     }
   }
 
@@ -16,8 +20,11 @@ export function nodeDriver(filename) {
     subscribe(query, params, cb) {
       let id = nextId++
       subscribers.set(id, { query, params, cb })
-      let rows = db.prepare(query).all(...params)
-      cb(rows)
+      // Emulate async for better compatibility
+      void Promise.resolve().then(() => {
+        let rows = db.prepare(query).all(...params)
+        cb(toRows(rows))
+      })
       return () => {
         subscribers.delete(id)
       }

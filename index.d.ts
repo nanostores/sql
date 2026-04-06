@@ -1,6 +1,6 @@
 import type { ReadableAtom } from 'nanostores'
 
-export interface DrizzleQuery {
+export interface DrizzleQuery<Result = unknown> extends PromiseLike<Result> {
   toSQL(): { sql: string; params: unknown[] }
 }
 
@@ -24,13 +24,13 @@ export interface Database<DBDriver extends Driver = Driver> {
    * @param query SQL tagged template or Drizzle query.
    * @returns Reactive store with  `{ isLoading, value }`.
    */
-  store<Value = unknown>(
+  store<Row = unknown>(
     query: TemplateStringsArray,
     ...params: (string | number)[]
-  ): ReadableAtom<SQliteStoreValue<Value>>
-  store<Value = unknown>(
-    query: DrizzleQuery
-  ): ReadableAtom<SQliteStoreValue<Value>>
+  ): ReadableAtom<SqlStoreValue<Row[]>>
+  store<Result>(
+    query: DrizzleQuery<Result>
+  ): ReadableAtom<SqlStoreValue<Result>>
 
   /**
    * Run a callback inside a database transaction.
@@ -63,11 +63,11 @@ export interface Database<DBDriver extends Driver = Driver> {
    * @param query SQL tagged template or Drizzle query.
    * @returns Promise resolving to the query result.
    */
-  exec<Value>(
+  exec(
     query: TemplateStringsArray,
     ...params: (string | number)[]
-  ): Promise<Value>
-  exec<Value>(query: DrizzleQuery): Promise<Value>
+  ): Promise<void>
+  exec(query: DrizzleQuery): Promise<void>
 
   /**
    * Whether the database connection is open.
@@ -128,6 +128,27 @@ export interface Driver {
   close(): void | Promise<void>
 }
 
+/**
+ * Create a Drizzle-compatible callback from a database instance.
+ *
+ * ```ts
+ * import { toDrizzle } from '@nanostores/sql'
+ * import { drizzle } from 'drizzle-orm/sqlite-proxy'
+ *
+ * export const drizzleDb = drizzle(toDrizzle(db))
+ * ```
+ *
+ * @param db Database instance.
+ * @returns Callback for `drizzle()` from `drizzle-orm/sqlite-proxy`.
+ */
+export function toDrizzle(
+  db: Database
+): (
+  sql: string,
+  params: unknown[],
+  method: string
+) => Promise<{ rows: unknown[][] }>
+
 export type MigrationStatusValue =
   | { applying: true }
   | { outdated: true }
@@ -161,6 +182,6 @@ export function migrateIfNeeded(
  * Store value for reactive SQL queries. Always has `isLoading: true`,
  * and may include `value` once initial data arrives.
  */
-export type SQliteStoreValue<Value = unknown> =
+export type SqlStoreValue<Value = unknown> =
   | { isLoading: true }
-  | { isLoading: true; value: Value }
+  | { isLoading: false; value: Value }

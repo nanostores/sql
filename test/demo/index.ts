@@ -105,7 +105,7 @@ function renderCounterList(db: Database): void {
     })
   )
 
-  let $counters = db.store<Counter[]>`SELECT * FROM counters ORDER BY id`
+  let $counters = db.store<Counter>`SELECT * FROM counters ORDER BY id`
   $counters.subscribe(state => {
     if (!('value' in state)) {
       list.innerHTML = '<p class="loading">Loading…</p>'
