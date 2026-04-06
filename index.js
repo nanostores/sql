@@ -12,19 +12,19 @@ function parseQuery(query, params) {
   return [sql, params]
 }
 
-export function openDb(driver) {
-  function createDb(d) {
+export function openDb(rootDriver) {
+  function createDb(driver) {
     let db = {
       opened: true,
       driver,
 
-      store(query, ...params) {
-        let [sql, p] = parseQuery(query, params)
+      store(query, ...rest) {
+        let [sql, params] = parseQuery(query, rest)
         let $store = atom({ isLoading: true })
         if (!db.opened) return $store
         let currentJSON
         onMount($store, () => {
-          return d.subscribe(sql, p, rows => {
+          return driver.subscribe(sql, params, rows => {
             let prevJSON = currentJSON
             currentJSON = JSON.stringify(rows)
             if (!$store.value || prevJSON !== currentJSON) {
@@ -35,10 +35,10 @@ export function openDb(driver) {
         return $store
       },
 
-      exec(query, ...params) {
+      exec(query, ...rest) {
         if (!db.opened) return new Promise(() => {})
-        let [sql, p] = parseQuery(query, params)
-        return d.exec(sql, p)
+        let [sql, params] = parseQuery(query, rest)
+        return driver.exec(sql, params)
       },
 
       transaction(callback) {
@@ -49,13 +49,13 @@ export function openDb(driver) {
       close() {
         if (!db.opened) return Promise.resolve()
         db.opened = false
-        return driver.close()
+        return rootDriver.close()
       }
     }
     return db
   }
 
-  return createDb(driver)
+  return createDb(rootDriver)
 }
 
 export function toDrizzle(db) {
