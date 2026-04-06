@@ -47,6 +47,13 @@ function button(text: string, onClick: () => void): HTMLButtonElement {
   return el('button', { onclick: onClick }, text)
 }
 
+addEventListener('error', () => {
+  document.body.style.background = '#c9583f'
+})
+addEventListener('unhandledrejection', () => {
+  document.body.style.background = '#c9583f'
+})
+
 if (path === '' || path === '/') {
   renderHome()
 } else {
@@ -73,13 +80,18 @@ function renderCounters(driverName: string): void {
     driverName === 'pglite' ? 'idb://demo-pglite' : `demo-${driverName}.sqlite`
   let db = openDb(drivers[driverName]!(dbName))
 
-  let status = el('p', { className: 'loading' })
+  let status = el('p', {})
   app.appendChild(status)
 
   let $migration = migrateIfNeeded(db, 1, async prevVersion => {
     if (prevVersion < 1) {
-      await db.exec`CREATE TABLE counters
-        (id INTEGER PRIMARY KEY AUTOINCREMENT, value INTEGER NOT NULL DEFAULT 0)`
+      if (driverName === 'pglite') {
+        await db.exec`CREATE TABLE counters
+          (id SERIAL PRIMARY KEY, value INTEGER NOT NULL DEFAULT 0)`
+      } else {
+        await db.exec`CREATE TABLE counters
+          (id INTEGER PRIMARY KEY AUTOINCREMENT, value INTEGER NOT NULL DEFAULT 0)`
+      }
     }
   })
 
