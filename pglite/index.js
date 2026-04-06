@@ -11,19 +11,19 @@ export function pgliteDriver(uri) {
 
   let driver = {
     subscribe(query, params, cb) {
-      let ret
+      let listener
       let unsubscribed = false
       db.live
         .query(toPostgres(query), params, res => {
-          if (!unsubscribed) cb(res.rows)
+          cb(res.rows)
         })
-        .then(r => {
-          ret = r
-          if (unsubscribed) ret.unsubscribe()
+        .then(result => {
+          listener = result
+          if (unsubscribed) listener.unsubscribe()
         })
       return () => {
         unsubscribed = true
-        if (ret) ret.unsubscribe()
+        if (listener) listener.unsubscribe()
       }
     },
 

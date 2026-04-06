@@ -23,14 +23,21 @@ export function openDb(rootDriver) {
         let $store = atom({ isLoading: true })
         if (!db.opened) return $store
         let currentJSON
+        let subscribed = false
         onMount($store, () => {
-          return driver.subscribe(sql, params, rows => {
+          subscribed = true
+          let unbind = driver.subscribe(sql, params, rows => {
+            if (!subscribed) return
             let prevJSON = currentJSON
             currentJSON = JSON.stringify(rows)
             if (!$store.value || prevJSON !== currentJSON) {
               $store.set({ isLoading: false, value: rows })
             }
           })
+          return () => {
+            subscribed = false
+            unbind()
+          }
         })
         return $store
       },
