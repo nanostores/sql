@@ -17,18 +17,24 @@ export function pgliteDriver(uri) {
         .query(toPostgres(query), params, res => {
           cb(res.rows)
         })
-        .then(result => {
+        .then(async result => {
           listener = result
-          if (unsubscribed) listener.unsubscribe()
+          if (unsubscribed) await listener.unsubscribe()
         })
-      return () => {
+      return async () => {
         unsubscribed = true
-        if (listener) listener.unsubscribe()
+        if (listener) await listener.unsubscribe()
       }
     },
 
     async exec(query, params) {
-      return await db.query(toPostgres(query), params)
+      await db.query(toPostgres(query), params).then(async result => {
+        // To be sure that stores was updated after SQL execution
+        await new Promise(resolve => {
+          setTimeout(resolve, 0)
+        })
+        return result
+      })
     },
 
     async transaction(callback) {

@@ -74,7 +74,6 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       $items.subscribe(state => {
         values.push(state)
       })
-
       deepEqual(values, [{ isLoading: true }])
 
       await setTimeout(50)
@@ -84,7 +83,6 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
 
       await db.exec`INSERT INTO items (title) VALUES (${'second'})`
-      await setTimeout(50)
       deepEqual(values, [
         { isLoading: true },
         { isLoading: false, value: [{ id: 1, title: 'first' }] },
@@ -230,7 +228,6 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(STORE_UNMOUNT_DELAY)
       await db.exec`INSERT INTO items (title) VALUES (${'second'})`
       await setTimeout(50)
-
       deepEqual(values, [
         { isLoading: true },
         { isLoading: false, value: [{ id: 1, title: 'first' }] }
@@ -242,6 +239,38 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       let $other = db.store<Item>`SELECT * FROM items ORDER BY id`
       notEqual($other, $items)
+
+      let newSubscription: SqlStoreValue<Item[]>[] = []
+      $items.subscribe(state => {
+        newSubscription.push(state)
+      })
+      await setTimeout(10)
+      deepEqual(newSubscription, [
+        { isLoading: true },
+        {
+          isLoading: false,
+          value: [
+            { id: 1, title: 'first' },
+            { id: 2, title: 'second' }
+          ]
+        }
+      ])
+
+      await db.exec`DELETE FROM items WHERE id = ${2}`
+      deepEqual(newSubscription, [
+        { isLoading: true },
+        {
+          isLoading: false,
+          value: [
+            { id: 1, title: 'first' },
+            { id: 2, title: 'second' }
+          ]
+        },
+        {
+          isLoading: false,
+          value: [{ id: 1, title: 'first' }]
+        }
+      ])
     })
 
     test('supports Drizzle in store', async () => {

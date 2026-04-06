@@ -102,7 +102,7 @@ export function openDb<DBDriver extends Driver>(
   driver: DBDriver
 ): Database<DBDriver>
 
-type Unsubscribe = () => void
+type Unsubscribe = () => void | Promise<void>
 
 export interface DriverTransaction {
   subscribe(

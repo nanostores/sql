@@ -17,6 +17,7 @@ function parseQuery(query, params) {
 
 export function openDb(rootDriver) {
   let cache = new Map()
+  let subscriptions = new Set()
 
   function createDb(driver) {
     let db = {
@@ -33,8 +34,9 @@ export function openDb(rootDriver) {
           let currentJSON
           let subscribed = false
           onMount($store, () => {
+            $store.set({ isLoading: true })
             subscribed = true
-            let unbind = driver.subscribe(sql, params, rows => {
+            let unsubscribe = driver.subscribe(sql, params, rows => {
               if (!subscribed) return
               let prevJSON = currentJSON
               currentJSON = JSON.stringify(rows)
@@ -42,10 +44,13 @@ export function openDb(rootDriver) {
                 $store.set({ isLoading: false, value: rows })
               }
             })
+            subscriptions.add(unsubscribe)
             return () => {
               cache.delete(cacheKey)
               subscribed = false
-              unbind()
+              currentJSON = undefined
+              subscriptions.add(unsubscribe)
+              unsubscribe()
             }
           })
           cache.set(cacheKey, $store)
@@ -64,8 +69,9 @@ export function openDb(rootDriver) {
         return driver.transaction(tx => callback(createDb(tx)))
       },
 
-      close() {
-        if (!db.opened) return Promise.resolve()
+      async close() {
+        if (!db.opened) return
+        for (let unsubscribe of subscriptions) await unsubscribe()
         db.opened = false
         return rootDriver.close()
       }
