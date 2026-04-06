@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Nano Stores SQL Demo",
-    "slug": "demo-rn",
+    "name": "Nano Stores SQL React Native Demo",
+    "slug": "demo-metro",
     "version": "0.0.0",
     "platforms": ["web"],
     "web": {
