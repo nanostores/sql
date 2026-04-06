@@ -124,7 +124,7 @@ Note, that SQL syntax has small differences between PostgreSQL and SQLite.
 
 ### Custom Driver
 
-You can support to any other database, just implement [`Driver` interface](./index.d.ts).
+You can support to any other database, just implement [`Driver`](./index.d.ts) interface.
 
 ## Migrations
 
