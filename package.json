@@ -50,6 +50,7 @@
     "better-node-test": "^0.8.4",
     "check-dts": "^1.0.0",
     "clean-publish": "^6.0.5",
+    "expo-sqlite": "^55.0.13",
     "globals": "^17.4.0",
     "happy-dom": "^20.8.9",
     "multiocular": "^0.8.2",
