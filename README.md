@@ -12,8 +12,6 @@ to smart stores.
 - Can be used in **browser** with OPFS ot with **React Native**.
 - Can be used with **Drizzle** to have type-safe query generation
   or with plain SQL strings to be very **small in JS bundle**.
-- The size is around **1 KB** (minified and brotlied).
-  It uses [Size Limit] to control size.
 
 ```ts
 import { openDb } from '@nanostores/sql'
