@@ -162,12 +162,24 @@ Use `db.store()` for `SELECT` queries to read data. It created store and update 
 const $users = db.store<User>`SELECT * FROM users WHERE name LIKE '%${name}%'`
 ```
 
-TO change data use `db.exec()`:
+To change data use `db.exec()`:
 
 ```ts
 setLoader(true)
 await db.exec`DELETE FROM users WHERE id = ${id}`
 setLoader(false)
+```
+
+Note that both `store` and `exec` don’t have brackets, since it is [tag template](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates). They automatically use parameterized queries for any `${}` to prevent _SQL injection_:
+
+```ts
+let value = "' OR '1'='1"
+let $secrets = db.store`SELECT * FROM secrets WHERE data = ${value}`
+// The tag template splits your input into:
+//   SQL:    "SELECT * FROM secrets WHERE data = ?"
+//   Params: ["' OR '1'='1"]
+// The database engine receives them separately, so the value
+// is always treated as data — it can never become part of the query.
 ```
 
 ## Usage with Drizzle
