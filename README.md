@@ -175,11 +175,10 @@ Note that both `store` and `exec` don’t have brackets, since it is [tag templa
 ```ts
 let value = "' OR '1'='1"
 let $secrets = db.store`SELECT * FROM secrets WHERE data = ${value}`
-// The tag template splits your input into:
+// The tag template splits this input into:
 //   SQL:    "SELECT * FROM secrets WHERE data = ?"
 //   Params: ["' OR '1'='1"]
-// The database engine receives them separately, so the value
-// is always treated as data — it can never become part of the query.
+// The database receives them separately — the param is not part of the query.
 ```
 
 ## Usage with Drizzle
