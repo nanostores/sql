@@ -170,7 +170,9 @@ await db.exec`DELETE FROM users WHERE id = ${id}`
 setLoader(false)
 ```
 
-Note that both `store` and `exec` don’t have brackets, since it is [tag template](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates). They automatically use parameterized queries for any `${}` to prevent _SQL injection_:
+Note that both `store` and `exec` don’t have brackets, since it is
+[tag template]. They automatically use parameterized queries for any `${}`
+to prevent _SQL injection_:
 
 ```ts
 let value = "' OR '1'='1"
@@ -180,6 +182,11 @@ let $secrets = db.store`SELECT * FROM secrets WHERE data = ${value}`
 //   Params: ["' OR '1'='1"]
 // The database receives them separately — the param is not part of the query.
 ```
+
+In additional to security, it also helps with performance, since param-less query (with `?`) can be compiled by database and compiled version then can be
+used with different params.
+
+[tag template]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Template_literals#tagged_templates
 
 ## Usage with Drizzle
 
