@@ -20,16 +20,16 @@ import { sqlocalDriver } from '@nanostores/sql/sqlocal'
 
 const db = openDb(sqlocalDriver('app.sqlite'))
 
-const User = ({ name }) => {
+const User = ({ id }) => {
   const $users = db.store<User>
-    `SELECT * FROM users WHERE name LIKE '%${name}%'`
+    `SELECT * FROM users WHERE id = ${id}`
   // or const $users = db.store(drizzleDb.select().from(usersTable)
-  //   .where(like(usersTable.name, `%${name}%`)))
+  //   .where(eq(usersTable.id, `%${id}%`)))
   const users = useStore($users)
   if (users.isLoading) {
     return <Loader>
   } else {
-    return users.list.map(user => <User>{user.name}</User>)
+    return {users.value[0].name}
   }
 }
 ```
@@ -159,7 +159,7 @@ If you are implementing your own migrations, call `db.close()` in browser tabs w
 Use `db.store()` for `SELECT` queries to read data. It created store and update data in the store on database changes:
 
 ```ts
-const $users = db.store<User>`SELECT * FROM users WHERE name LIKE '%${name}%'`
+const $users = db.store<User>`SELECT * FROM users WHERE name = ${name}`
 ```
 
 To change data use `db.exec()`:

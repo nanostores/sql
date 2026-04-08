@@ -10,7 +10,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    * automatically when the database changes.
    *
    * ```ts
-   * const $users = db.store<User>`SELECT * FROM users WHERE name LIKE '%${name}%'`
+   * const $users = db.store<User>`SELECT * FROM users WHERE id = ${id}`
    * ```
    *
    * Also accepts a Drizzle query builder:
