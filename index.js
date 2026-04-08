@@ -73,7 +73,7 @@ export function openDb(rootDriver) {
         if (!db.opened) return
         for (let unsubscribe of subscriptions) await unsubscribe()
         db.opened = false
-        return rootDriver.close()
+        await rootDriver.close()
       }
     }
     return db
