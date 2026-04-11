@@ -24,7 +24,7 @@ const User = ({ id }) => {
   const $users = db.store<User>
     `SELECT * FROM users WHERE id = ${id}`
   // or const $users = db.store(drizzleDb.select().from(usersTable)
-  //   .where(eq(usersTable.id, `%${id}%`)))
+  //   .where(eq(usersTable.id, id)))
   const users = useStore($users)
   if (users.isLoading) {
     return <Loader>
