@@ -29,7 +29,7 @@ beforeEach(() => {
 
   globalThis.addEventListener = ((event: string, handler: () => void) => {
     if (event === 'storage') {
-      storageListeners.push(handler as (e: StorageEvent) => void)
+      storageListeners.push(handler)
     }
   }) as typeof globalThis.addEventListener
 })

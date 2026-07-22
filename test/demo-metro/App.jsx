@@ -1,8 +1,8 @@
 import { useStore } from '@nanostores/react'
 import { Button, StyleSheet, Text, View } from 'react-native'
 
-import { expoDriver } from '../../expo/index.js'
-import { migrateIfNeeded, openDb } from '../../index.js'
+import { expoDriver } from '@nanostores/sql/expo'
+import { migrateIfNeeded, openDb } from '@nanostores/sql'
 
 let db = openDb(expoDriver('expo-demo.sqlite'))
 
