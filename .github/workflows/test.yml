@@ -23,5 +23,8 @@ jobs:
           runtime: node@26
       - name: Install dependencies
         run: pnpm ci
+      - name: Install Metro demo dependencies
+        run: pnpm ci
+        working-directory: test/demo-metro
       - name: Run tests
         run: pnpm test
