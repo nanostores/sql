@@ -18,11 +18,24 @@ function parseQuery(query, params) {
 export function openDb(rootDriver) {
   let cache = new Map()
   let subscriptions = new Set()
+  let paused = false
+  let waiting = []
 
   function createDb(driver) {
     let db = {
       opened: true,
       driver,
+
+      pause() {
+        paused = true
+      },
+
+      resume() {
+        paused = false
+        let started = waiting
+        waiting = []
+        for (let start of started) start()
+      },
 
       store(query, ...rest) {
         let [sql, params, cacheKey] = parseQuery(query, rest)
@@ -30,27 +43,43 @@ export function openDb(rootDriver) {
           return cache.get(cacheKey)
         } else {
           let $store = atom({ isLoading: true })
+          let resolveLoading
+          $store.loading = new Promise(resolve => {
+            resolveLoading = resolve
+          })
           if (!db.opened) return $store
           let currentJSON
           let subscribed = false
           onMount($store, () => {
-            $store.set({ isLoading: true })
             subscribed = true
-            let unsubscribe = driver.subscribe(sql, params, rows => {
-              if (!subscribed) return
-              let prevJSON = currentJSON
-              currentJSON = JSON.stringify(rows)
-              if (!$store.value || prevJSON !== currentJSON) {
-                $store.set({ isLoading: false, value: rows })
-              }
-            })
-            subscriptions.add(unsubscribe)
+            let unsubscribe
+            let start = () => {
+              unsubscribe = driver.subscribe(sql, params, rows => {
+                if (!subscribed) return
+                resolveLoading()
+                let prevJSON = currentJSON
+                currentJSON = JSON.stringify(rows)
+                if (!$store.value || prevJSON !== currentJSON) {
+                  $store.set({ isLoading: false, value: rows })
+                }
+              })
+              subscriptions.add(unsubscribe)
+            }
+            if (paused) {
+              waiting.push(start)
+            } else {
+              start()
+            }
             return () => {
               cache.delete(cacheKey)
               subscribed = false
               currentJSON = undefined
-              subscriptions.add(unsubscribe)
-              unsubscribe()
+              if (unsubscribe) {
+                subscriptions.add(unsubscribe)
+                unsubscribe()
+              } else {
+                waiting = waiting.filter(i => i !== start)
+              }
             }
           })
           cache.set(cacheKey, $store)
@@ -114,9 +143,11 @@ export function migrateIfNeeded(db, version, migrate) {
   } else if (prevVersion === version) {
     $status.set({ ready: true })
   } else {
+    db.pause()
     void Promise.resolve(migrate(prevVersion)).then(() => {
       localStorage.setItem(STORAGE_KEY, String(version))
       $status.set({ ready: true })
+      db.resume()
     })
   }
 

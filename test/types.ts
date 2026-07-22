@@ -27,3 +27,8 @@ $posts.subscribe(value => {
     }
   }
 })
+
+await $posts.loading
+
+db.pause()
+db.resume()

@@ -254,8 +254,10 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         newSubscription.push(state)
       })
       await setTimeout(10)
+      // Re-subscribing keeps the last value instead of flashing isLoading,
+      // then updates once the fresh query resolves
       deepEqual(newSubscription, [
-        { isLoading: true },
+        { isLoading: false, value: [{ id: 1, title: 'first' }] },
         {
           isLoading: false,
           value: [
@@ -267,7 +269,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       await db.exec`DELETE FROM items WHERE id = ${2}`
       deepEqual(newSubscription, [
-        { isLoading: true },
+        { isLoading: false, value: [{ id: 1, title: 'first' }] },
         {
           isLoading: false,
           value: [
@@ -280,6 +282,65 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
           value: [{ id: 1, title: 'first' }]
         }
       ])
+    })
+
+    test('resolves loading promise on first value', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+
+      let $items = db.store<Item>`SELECT * FROM items ORDER BY id`
+      let unbind = $items.subscribe(() => {})
+      await $items.loading
+      deepEqual($items.value, {
+        isLoading: false,
+        value: [{ id: 1, title: 'first' }]
+      })
+      unbind()
+    })
+
+    test('pauses and resumes queries', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+
+      db.pause()
+      let values: SqlStoreValue<Item[]>[] = []
+      let $items = db.store<Item>`SELECT * FROM items ORDER BY id`
+      $items.subscribe(state => {
+        values.push(state)
+      })
+
+      await setTimeout(50)
+      deepEqual(values, [{ isLoading: true }])
+
+      db.resume()
+      await setTimeout(50)
+      deepEqual(values, [
+        { isLoading: true },
+        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+      ])
+    })
+
+    test('drops deferred query when unmounted before resume', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+
+      db.pause()
+      let values: SqlStoreValue<Item[]>[] = []
+      let $items = db.store<Item>`SELECT * FROM items ORDER BY id`
+      let unbind = $items.subscribe(state => {
+        values.push(state)
+      })
+
+      await setTimeout(10)
+      unbind()
+      await setTimeout(STORE_UNMOUNT_DELAY)
+
+      db.resume()
+      await setTimeout(50)
+      deepEqual(values, [{ isLoading: true }])
     })
 
     test('supports Drizzle', async () => {

@@ -27,10 +27,8 @@ export interface Database<DBDriver extends Driver = Driver> {
   store<Row = unknown>(
     query: TemplateStringsArray,
     ...params: (string | number)[]
-  ): ReadableAtom<SqlStoreValue<Row[]>>
-  store<Result>(
-    query: DrizzleQuery<Result>
-  ): ReadableAtom<SqlStoreValue<Result>>
+  ): SqlStore<Row[]>
+  store<Result>(query: DrizzleQuery<Result>): SqlStore<Result>
 
   /**
    * Run a callback inside a database transaction.
@@ -68,6 +66,19 @@ export interface Database<DBDriver extends Driver = Driver> {
     ...params: (string | number)[]
   ): Promise<void>
   exec(query: DrizzleQuery): Promise<void>
+
+  /**
+   * Postpone the first query of the stores mounted after this call
+   * until {@link Database#resume}. Call it before creating tables or
+   * applying migrations to avoid queries to not yet existing tables.
+   * Stores which already started their queries are not affected.
+   */
+  pause(): void
+
+  /**
+   * Run queries of the stores deferred by {@link Database#pause}.
+   */
+  resume(): void
 
   /**
    * Whether the database connection is open.
@@ -158,6 +169,9 @@ export type MigrationStatusValue =
  * Run migrations if the database is behind the target version.
  * Returns a reactive store with the current migration status.
  *
+ * Store queries are paused while migrations are applying
+ * (see {@link Database#pause}).
+ *
  * ```ts
  * const $status = migrateIfNeeded(db, 2, async prevVersion => {
  *   if (prevVersion <= 1) {
@@ -185,3 +199,17 @@ export function migrateIfNeeded(
 export type SqlStoreValue<Value = unknown> =
   | { isLoading: true }
   | { isLoading: false; value: Value }
+
+/**
+ * Reactive store of a `SELECT` query created by `db.store`.
+ */
+export interface SqlStore<Value = unknown>
+  extends ReadableAtom<SqlStoreValue<Value>> {
+  /**
+   * Promise resolved when the store receives query results
+   * for the first time. The query runs only while the store has
+   * listeners, so subscribe to the store (for instance,
+   * with `loadValue()`) for the promise to resolve.
+   */
+  loading: Promise<void>
+}
