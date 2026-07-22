@@ -93,6 +93,12 @@ export function openDb(rootDriver) {
         return driver.exec(sql, params)
       },
 
+      select(query, ...rest) {
+        if (!db.opened) return new Promise(() => {})
+        let [sql, params] = parseQuery(query, rest)
+        return driver.select(sql, params)
+      },
+
       transaction(callback) {
         if (!db.opened) return new Promise(() => {})
         return driver.transaction(tx => callback(createDb(tx)))
@@ -117,16 +123,8 @@ export function toDrizzle(db) {
       await db.driver.exec(sql, params)
       return { rows: [] }
     }
-    return new Promise(resolve => {
-      let done = false
-      let unsubscribe
-      unsubscribe = db.driver.subscribe(sql, params, rows => {
-        done = true
-        resolve({ rows: rows.map(row => Object.values(row)) })
-        if (unsubscribe) unsubscribe()
-      })
-      if (done) unsubscribe()
-    })
+    let rows = await db.driver.select(sql, params)
+    return { rows: rows.map(row => Object.values(row)) }
   }
 }
 

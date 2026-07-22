@@ -19,6 +19,10 @@ let $posts = db.store(
   drizzleDb.select().from(postsTable).where(eq(postsTable.title, 'hello'))
 )
 
+let rows = await db.select<{ id: number; title: string }>`SELECT * FROM posts`
+// THROWS 'name' does not exist on type '{ id: number; title: string; }'
+console.log(rows[0]?.name)
+
 $posts.subscribe(value => {
   // THROWS isLoading: true
   console.log(value.value.length)

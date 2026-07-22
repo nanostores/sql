@@ -38,6 +38,12 @@ export function nodeDriver(filename) {
       })
     },
 
+    select(query, params) {
+      return new Promise(resolve => {
+        resolve(toRows(db.prepare(query).all(...params)))
+      })
+    },
+
     async transaction(callback) {
       db.exec('BEGIN')
       try {
@@ -48,7 +54,8 @@ export function nodeDriver(filename) {
               let result = db.prepare(query).run(...params)
               resolve(result)
             })
-          }
+          },
+          select: driver.select
         }
         let result = await callback(tx)
         db.exec('COMMIT')

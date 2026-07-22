@@ -18,12 +18,19 @@ export function sqlocalDriver(filename) {
       await db.sql(query, ...params)
     },
 
+    select(query, params) {
+      return db.sql(query, ...params)
+    },
+
     async transaction(callback) {
       return db.transaction(async tx => {
         return callback({
           subscribe: driver.subscribe,
           async exec(query, params) {
             await tx.sql(query, ...params)
+          },
+          select(query, params) {
+            return tx.sql(query, ...params)
           }
         })
       })

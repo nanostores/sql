@@ -116,6 +116,49 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       equal($other, $items)
     })
 
+    test('selects rows without store', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+
+      let items = await db.select<Item>`SELECT * FROM items ORDER BY id`
+      deepEqual(items, [{ id: 1, title: 'first' }])
+
+      let injection = "' OR '1'='1"
+      let none = await db.select`SELECT * FROM items WHERE title = ${injection}`
+      deepEqual(none, [])
+
+      await db.exec`INSERT INTO items (title) VALUES (${'second'})`
+      let updated = await db.select<Item>`SELECT * FROM items ORDER BY id`
+      deepEqual(updated, [
+        { id: 1, title: 'first' },
+        { id: 2, title: 'second' }
+      ])
+    })
+
+    test('selects inside transaction', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+
+      let inside = await db.transaction(async tx => {
+        await tx.exec`INSERT INTO items (title) VALUES (${'first'})`
+        return tx.select<Item>`SELECT * FROM items ORDER BY id`
+      })
+      deepEqual(inside, [{ id: 1, title: 'first' }])
+    })
+
+    test('selects with Drizzle', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'posts', 'title TEXT NOT NULL')
+      let drizzleDb = drizzle(toDrizzle(db))
+
+      await db.exec(
+        drizzleDb.insert(postsTable).values({ id: 1, title: 'hello' })
+      )
+      let posts = await db.select(drizzleDb.select().from(postsTable))
+      deepEqual(posts, [{ id: 1, title: 'hello' }])
+    })
+
     test('commits transactions', async () => {
       db = openDb(setup.create())
       await createTable(db, 'logs', 'msg TEXT')
@@ -393,6 +436,16 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(50)
       deepEqual(storeValues, [{ isLoading: true }])
 
+      // select returns a promise that never resolves
+      let selectResolved = false
+      db.select`SELECT 1`
+        .then(() => {
+          selectResolved = true
+        })
+        .catch(() => {
+          selectResolved = true
+        })
+
       // exec returns a promise that never resolves
       let execResolved = false
       db.exec`INSERT INTO items (title) VALUES (${'test'})`
@@ -404,6 +457,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         })
       await setTimeout(50)
       equal(execResolved, false)
+      equal(selectResolved, false)
 
       // Double call do not throw an error
       await db.close()

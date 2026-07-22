@@ -162,6 +162,13 @@ Use `db.store()` for `SELECT` queries to read data. It created store and update 
 const $users = db.store<User>`SELECT * FROM users WHERE name = ${name}`
 ```
 
+If you need data only once (for instance, in an event handler) and don’t want
+a reactive store, use `db.select()`:
+
+```ts
+let users = await db.select<User>`SELECT * FROM users WHERE name = ${name}`
+```
+
 To change data use `db.exec()`:
 
 ```ts
@@ -170,7 +177,7 @@ await db.exec`DELETE FROM users WHERE id = ${id}`
 setLoader(false)
 ```
 
-Note that both `store` and `exec` don’t have brackets, since it is
+Note that `store`, `select`, and `exec` don’t have brackets, since it is
 [tag template]. They automatically use parameterized queries for any `${}`
 to prevent _SQL injection_:
 
@@ -217,7 +224,7 @@ import { drizzle } from 'drizzle-orm/sqlite-proxy'
 export const drizzleDb = drizzle(toDrizzle(db))
 ```
 
-Pass Drizzle query builders to `db.store()` or `db.exec()`:
+Pass Drizzle query builders to `db.store()`, `db.select()`, or `db.exec()`:
 
 ```ts
 const $users = db.store<User>(
@@ -226,6 +233,8 @@ const $users = db.store<User>(
     .from(usersTable)
     .where(like(usersTable.name, `%${name}%`))
 )
+
+const users = await db.select(drizzleDb.select().from(usersTable))
 ```
 
 ### Migrations with Drizzle

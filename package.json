@@ -91,7 +91,7 @@
         "./index.js": "{ openDb, migrateIfNeeded }",
         "./sqlocal/index.js": "{ sqlocalDriver }"
       },
-      "limit": "806 B"
+      "limit": "827 B"
     }
   ],
   "engines": {

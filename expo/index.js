@@ -38,6 +38,11 @@ export function expoDriver(filename) {
       await db.runAsync(query, params)
     },
 
+    async select(query, params) {
+      let db = await dbReady
+      return db.getAllAsync(query, params)
+    },
+
     async transaction(callback) {
       let db = await dbReady
       await db.withTransactionAsync(async () => {
@@ -45,6 +50,9 @@ export function expoDriver(filename) {
           subscribe: driver.subscribe,
           async exec(query, params) {
             await db.runAsync(query, params)
+          },
+          select(query, params) {
+            return db.getAllAsync(query, params)
           }
         })
       })

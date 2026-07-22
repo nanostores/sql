@@ -39,12 +39,21 @@ export function pgliteDriver(uri) {
       })
     },
 
+    async select(query, params) {
+      let result = await db.query(toPostgres(query), params)
+      return result.rows
+    },
+
     async transaction(callback) {
       return db.transaction(tx => {
         return callback({
           subscribe: driver.subscribe,
           exec(query, params) {
             return tx.query(toPostgres(query), params)
+          },
+          async select(query, params) {
+            let result = await tx.query(toPostgres(query), params)
+            return result.rows
           }
         })
       })

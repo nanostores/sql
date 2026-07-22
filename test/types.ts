@@ -30,5 +30,11 @@ $posts.subscribe(value => {
 
 await $posts.loading
 
+let rows = await db.select<{ id: number; title: string }>`SELECT * FROM posts`
+console.log(rows[0]?.title)
+
+let drizzleRows = await db.select(drizzleDb.select().from(postsTable))
+console.log(drizzleRows[0]?.title)
+
 db.pause()
 db.resume()

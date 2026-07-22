@@ -31,6 +31,29 @@ export interface Database<DBDriver extends Driver = Driver> {
   store<Result>(query: DrizzleQuery<Result>): SqlStore<Result>
 
   /**
+   * Run a `SELECT` query once and get the rows without creating a store.
+   * Use it when you need data outside of UI, for instance, in event handlers.
+   *
+   * ```ts
+   * const users = await db.select<User>`SELECT * FROM users WHERE id = ${id}`
+   * ```
+   *
+   * Also accepts a Drizzle query builder:
+   *
+   * ```ts
+   * const users = await db.select(drizzleDb.select().from(usersTable))
+   * ```
+   *
+   * @param query SQL tagged template or Drizzle query.
+   * @returns Promise resolving to the query rows.
+   */
+  select<Row = unknown>(
+    query: TemplateStringsArray,
+    ...params: (string | number)[]
+  ): Promise<Row[]>
+  select<Result>(query: DrizzleQuery<Result>): Promise<Result>
+
+  /**
    * Run a callback inside a database transaction.
    *
    * ```ts
@@ -123,6 +146,8 @@ export interface DriverTransaction {
   ): Unsubscribe
 
   exec(query: string, params: string[]): Promise<unknown>
+
+  select(query: string, params: string[]): Promise<unknown[]>
 }
 
 export interface Driver {
@@ -133,6 +158,8 @@ export interface Driver {
   ): Unsubscribe
 
   exec(query: string, params: string[]): Promise<unknown>
+
+  select(query: string, params: string[]): Promise<unknown[]>
 
   transaction<T>(callback: (tx: DriverTransaction) => Promise<T>): Promise<T>
 
