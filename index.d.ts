@@ -4,6 +4,13 @@ export interface DrizzleQuery<Result = unknown> extends PromiseLike<Result> {
   toSQL(): { sql: string; params: unknown[] }
 }
 
+/**
+ * Values allowed as bound SQL parameters. They are passed
+ * to the database driver as-is, without any conversion, so use values
+ * supported by your database (for instance, SQLite has no booleans).
+ */
+export type SqlParam = boolean | null | number | string
+
 export interface Database<DBDriver extends Driver = Driver> {
   /**
    * Create a reactive store from a `SELECT` query. The store updates
@@ -26,7 +33,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    */
   store<Row = unknown>(
     query: TemplateStringsArray,
-    ...params: (string | number)[]
+    ...params: SqlParam[]
   ): SqlStore<Row[]>
   store<Result>(query: DrizzleQuery<Result>): SqlStore<Result>
 
@@ -49,7 +56,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    */
   select<Row = unknown>(
     query: TemplateStringsArray,
-    ...params: (string | number)[]
+    ...params: SqlParam[]
   ): Promise<Row[]>
   select<Result>(query: DrizzleQuery<Result>): Promise<Result>
 
@@ -86,7 +93,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    */
   exec(
     query: TemplateStringsArray,
-    ...params: (string | number)[]
+    ...params: SqlParam[]
   ): Promise<void>
   exec(query: DrizzleQuery): Promise<void>
 
@@ -141,25 +148,25 @@ type Unsubscribe = () => void | Promise<void>
 export interface DriverTransaction {
   subscribe(
     query: string,
-    params: string[],
+    params: SqlParam[],
     cb: (result: unknown) => void
   ): Unsubscribe
 
-  exec(query: string, params: string[]): Promise<unknown>
+  exec(query: string, params: SqlParam[]): Promise<unknown>
 
-  select(query: string, params: string[]): Promise<unknown[]>
+  select(query: string, params: SqlParam[]): Promise<unknown[]>
 }
 
 export interface Driver {
   subscribe(
     query: string,
-    params: string[],
+    params: SqlParam[],
     cb: (result: unknown) => void
   ): Unsubscribe
 
-  exec(query: string, params: string[]): Promise<unknown>
+  exec(query: string, params: SqlParam[]): Promise<unknown>
 
-  select(query: string, params: string[]): Promise<unknown[]>
+  select(query: string, params: SqlParam[]): Promise<unknown[]>
 
   transaction<T>(callback: (tx: DriverTransaction) => Promise<T>): Promise<T>
 
