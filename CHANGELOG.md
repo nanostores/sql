@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.3.1
+
+- Fixed accepted types for pglite.
+
 ## 0.3.0
 
 - Added `Database#select()`.
