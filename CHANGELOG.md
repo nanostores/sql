@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.4.0
+
+- Added `immediate` transactions support.
+
 ## 0.3.1
 
 - Fixed accepted types for pglite.
