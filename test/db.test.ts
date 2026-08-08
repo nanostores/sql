@@ -3,6 +3,9 @@ import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { type ReadableAtom, STORE_UNMOUNT_DELAY } from 'nanostores'
 import { deepEqual, equal, match, notEqual } from 'node:assert/strict'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { afterEach, describe, test } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
 
@@ -145,6 +148,30 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         return tx.select<Item>`SELECT * FROM items ORDER BY id`
       })
       deepEqual(inside, [{ id: 1, title: 'first' }])
+    })
+
+    test('reads and writes in immediate transaction', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+
+      let last = await db.transaction(
+        async tx => {
+          let rows = await tx.select<{
+            last: number
+          }>`SELECT max(id) AS last FROM items`
+          await tx.exec`INSERT INTO items (title) VALUES (${'second'})`
+          return rows[0]!.last
+        },
+        { immediate: true }
+      )
+      equal(last, 1)
+
+      let items = await db.select<Item>`SELECT * FROM items ORDER BY id`
+      deepEqual(items, [
+        { id: 1, title: 'first' },
+        { id: 2, title: 'second' }
+      ])
     })
 
     test('selects with Drizzle', async () => {
@@ -465,3 +492,38 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
     })
   })
 }
+
+describe('node', () => {
+  test('takes write lock on immediate transaction start', async () => {
+    let dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
+    let writer = openDb(nodeDriver(join(dir, 'test.db')))
+    let other = openDb(nodeDriver(join(dir, 'test.db')))
+    await writer.driver.exec('CREATE TABLE items (id INTEGER PRIMARY KEY)', [])
+
+    async function writeFromOtherConnection(id: number): Promise<string> {
+      try {
+        await other.exec`INSERT INTO items (id) VALUES (${id})`
+        return 'written'
+      } catch (e) {
+        return (e as Error).message
+      }
+    }
+
+    // `BEGIN` does not lock anything until the first query
+    let deferred = await writer.transaction(() => {
+      return writeFromOtherConnection(1)
+    })
+    equal(deferred, 'written')
+
+    // `BEGIN IMMEDIATE` locks the database right away
+    let immediate = await writer.transaction(
+      () => writeFromOtherConnection(2),
+      { immediate: true }
+    )
+    match(immediate, /locked/)
+
+    await writer.close()
+    await other.close()
+    await rm(dir, { force: true, recursive: true })
+  })
+})

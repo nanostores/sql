@@ -39,5 +39,17 @@ console.log(drizzleRows[0]?.title)
 await db.exec`INSERT INTO posts (title, rank, published, author)
   VALUES (${'hello'}, ${1}, ${true}, ${null})`
 
+let added = await db.transaction(
+  async tx => {
+    let last = await tx.select<{
+      id: number
+    }>`SELECT max("id") AS "id" FROM posts`
+    await tx.exec`INSERT INTO posts (title) VALUES (${'next'})`
+    return last.length
+  },
+  { immediate: true }
+)
+console.log(added)
+
 db.pause()
 db.resume()

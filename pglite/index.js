@@ -44,6 +44,8 @@ export function pgliteDriver(uri) {
       return result.rows
     },
 
+    // PGlite has a single connection and PostgreSQL takes the lock
+    // on the first write query, so `immediate` option is not needed
     async transaction(callback) {
       return db.transaction(tx => {
         return callback({

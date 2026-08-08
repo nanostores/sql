@@ -43,19 +43,30 @@ export function expoDriver(filename) {
       return db.getAllAsync(query, params)
     },
 
-    async transaction(callback) {
+    async transaction(callback, opts = {}) {
       let db = await dbReady
-      await db.withTransactionAsync(async () => {
-        await callback({
+      let result
+      let run = tx => {
+        return callback({
           subscribe: driver.subscribe,
           async exec(query, params) {
-            await db.runAsync(query, params)
+            await tx.runAsync(query, params)
           },
           select(query, params) {
-            return db.getAllAsync(query, params)
+            return tx.getAllAsync(query, params)
           }
         })
-      })
+      }
+      if (opts.immediate) {
+        await db.withExclusiveTransactionAsync(async tx => {
+          result = await run(tx)
+        })
+      } else {
+        await db.withTransactionAsync(async () => {
+          result = await run(db)
+        })
+      }
+      return result
     },
 
     async close() {

@@ -22,6 +22,8 @@ export function sqlocalDriver(filename) {
       return db.sql(query, ...params)
     },
 
+    // SQLocal has exclusive access to the file from a single worker,
+    // so `immediate` option is not needed
     async transaction(callback) {
       return db.transaction(async tx => {
         return callback({

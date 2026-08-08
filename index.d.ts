@@ -11,6 +11,22 @@ export interface DrizzleQuery<Result = unknown> extends PromiseLike<Result> {
  */
 export type SqlParam = boolean | null | number | string
 
+export interface TransactionOptions {
+  /**
+   * Take the write lock on the transaction start instead of the first
+   * write query.
+   *
+   * Use it when the transaction reads the data and then writes it back
+   * (like `SELECT max(id)` and then `INSERT`). Without it two connections
+   * can read the same data and the second `INSERT` will fail
+   * with `SQLITE_BUSY` or with a constraint error.
+   *
+   * It is supported by SQLite drivers with own transactions: `node`
+   * and `expo`. Other drivers do not need it and will ignore the option.
+   */
+  immediate?: boolean
+}
+
 export interface Database<DBDriver extends Driver = Driver> {
   /**
    * Create a reactive store from a `SELECT` query. The store updates
@@ -70,10 +86,24 @@ export interface Database<DBDriver extends Driver = Driver> {
    * })
    * ```
    *
+   * Pass `{ immediate: true }` if the transaction reads the data
+   * and then writes it back:
+   *
+   * ```ts
+   * await db.transaction(async tx => {
+   *   const [{ last }] = await tx.select`SELECT max("id") AS "last" FROM users`
+   *   await tx.exec`INSERT INTO users ("id") VALUES (${last + 1})`
+   * }, { immediate: true })
+   * ```
+   *
    * @param callback Function receiving a transactional `Database` instance.
+   * @param opts Transaction options.
    * @returns Promise resolving to the callback's return value.
    */
-  transaction<T>(callback: (tx: Database<DBDriver>) => Promise<T>): Promise<T>
+  transaction<T>(
+    callback: (tx: Database<DBDriver>) => Promise<T>,
+    opts?: TransactionOptions
+  ): Promise<T>
 
   /**
    * Execute a write query (INSERT, UPDATE, DELETE, etc.).
@@ -168,7 +198,10 @@ export interface Driver {
 
   select(query: string, params: SqlParam[]): Promise<unknown[]>
 
-  transaction<T>(callback: (tx: DriverTransaction) => Promise<T>): Promise<T>
+  transaction<T>(
+    callback: (tx: DriverTransaction) => Promise<T>,
+    opts?: TransactionOptions
+  ): Promise<T>
 
   close(): void | Promise<void>
 }

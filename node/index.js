@@ -44,8 +44,8 @@ export function nodeDriver(filename) {
       })
     },
 
-    async transaction(callback) {
-      db.exec('BEGIN')
+    async transaction(callback, opts = {}) {
+      db.exec(opts.immediate ? 'BEGIN IMMEDIATE' : 'BEGIN')
       try {
         let tx = {
           subscribe: driver.subscribe,

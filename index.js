@@ -99,9 +99,9 @@ export function openDb(rootDriver) {
         return driver.select(sql, params)
       },
 
-      transaction(callback) {
+      transaction(callback, opts) {
         if (!db.opened) return new Promise(() => {})
-        return driver.transaction(tx => callback(createDb(tx)))
+        return driver.transaction(tx => callback(createDb(tx)), opts)
       },
 
       async close() {
