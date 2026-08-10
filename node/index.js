@@ -46,25 +46,25 @@ export function nodeDriver(filename) {
 
     async transaction(callback, opts = {}) {
       db.exec(opts.immediate ? 'BEGIN IMMEDIATE' : 'BEGIN')
+      let result
       try {
         let tx = {
           subscribe: driver.subscribe,
           exec(query, params) {
             return new Promise(resolve => {
-              let result = db.prepare(query).run(...params)
-              resolve(result)
+              resolve(db.prepare(query).run(...params))
             })
           },
           select: driver.select
         }
-        let result = await callback(tx)
+        result = await callback(tx)
         db.exec('COMMIT')
-        notifySubscribers()
-        return result
       } catch (e) {
         db.exec('ROLLBACK')
         throw e
       }
+      notifySubscribers()
+      return result
     },
 
     close() {

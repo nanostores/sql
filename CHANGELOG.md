@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.4.1
+
+- Fixed `Database#pause()` to stop already mounted stores.
+
 ## 0.4.0
 
 - Added `immediate` transactions support.

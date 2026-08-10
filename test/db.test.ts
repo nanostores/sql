@@ -413,6 +413,46 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       deepEqual(values, [{ isLoading: true }])
     })
 
+    test('stops mounted stores while paused', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+
+      let values: SqlStoreValue<(Item | Log)[]>[] = []
+      let $items = db.store<Item>`SELECT * FROM items ORDER BY id`
+      $items.subscribe(state => {
+        values.push(state)
+      })
+      await setTimeout(50)
+      deepEqual(values, [
+        { isLoading: true },
+        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+      ])
+
+      db.pause()
+      await db.driver.exec('DROP TABLE items', [])
+      await createTable(db, 'items', 'msg TEXT')
+      await db.exec`INSERT INTO items (msg) VALUES (${'second'})`
+      equal(values.length, 2)
+
+      db.resume()
+      await setTimeout(50)
+      deepEqual(values, [
+        { isLoading: true },
+        { isLoading: false, value: [{ id: 1, title: 'first' }] },
+        { isLoading: false, value: [{ id: 1, msg: 'second' }] }
+      ])
+
+      await db.exec`INSERT INTO items (msg) VALUES (${'third'})`
+      deepEqual(values[3], {
+        isLoading: false,
+        value: [
+          { id: 1, msg: 'second' },
+          { id: 2, msg: 'third' }
+        ]
+      })
+    })
+
     test('supports Drizzle', async () => {
       db = openDb(setup.create())
       await createTable(db, 'posts', 'title TEXT NOT NULL')

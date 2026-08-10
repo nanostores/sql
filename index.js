@@ -18,8 +18,8 @@ function parseQuery(query, params) {
 export function openDb(rootDriver) {
   let cache = new Map()
   let subscriptions = new Set()
+  let mounted = new Set()
   let paused = false
-  let waiting = []
 
   function createDb(driver) {
     let db = {
@@ -28,13 +28,12 @@ export function openDb(rootDriver) {
 
       pause() {
         paused = true
+        for (let store of mounted) store.stop()
       },
 
       resume() {
         paused = false
-        let started = waiting
-        waiting = []
-        for (let start of started) start()
+        for (let store of mounted) store.start()
       },
 
       store(query, ...rest) {
@@ -53,33 +52,35 @@ export function openDb(rootDriver) {
           onMount($store, () => {
             subscribed = true
             let unsubscribe
-            let start = () => {
-              unsubscribe = driver.subscribe(sql, params, rows => {
-                if (!subscribed) return
-                resolveLoading()
-                let prevJSON = currentJSON
-                currentJSON = JSON.stringify(rows)
-                if (!$store.value || prevJSON !== currentJSON) {
-                  $store.set({ isLoading: false, value: rows })
-                }
-              })
-              subscriptions.add(unsubscribe)
+            let store = {
+              start() {
+                if (unsubscribe) return
+                unsubscribe = driver.subscribe(sql, params, rows => {
+                  if (!subscribed) return
+                  resolveLoading()
+                  let prevJSON = currentJSON
+                  currentJSON = JSON.stringify(rows)
+                  if (!$store.value || prevJSON !== currentJSON) {
+                    $store.set({ isLoading: false, value: rows })
+                  }
+                })
+                subscriptions.add(unsubscribe)
+              },
+              stop() {
+                if (!unsubscribe) return
+                subscriptions.delete(unsubscribe)
+                unsubscribe()
+                unsubscribe = undefined
+              }
             }
-            if (paused) {
-              waiting.push(start)
-            } else {
-              start()
-            }
+            mounted.add(store)
+            if (!paused) store.start()
             return () => {
               cache.delete(cacheKey)
               subscribed = false
               currentJSON = undefined
-              if (unsubscribe) {
-                subscriptions.add(unsubscribe)
-                unsubscribe()
-              } else {
-                waiting = waiting.filter(i => i !== start)
-              }
+              mounted.delete(store)
+              store.stop()
             }
           })
           cache.set(cacheKey, $store)
