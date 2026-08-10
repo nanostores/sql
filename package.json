@@ -49,7 +49,7 @@
     "@logux/oxc-configs": "^1.1.0",
     "@size-limit/preset-small-lib": "^13.0.3",
     "@types/node": "^26.2.0",
-    "actions-up": "^1.16.0",
+    "actions-up": "^1.17.0",
     "better-node-test": "^1.0.0",
     "check-dts": "^2.0.1",
     "drizzle-orm": "^0.45.2",
