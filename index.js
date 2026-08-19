@@ -15,7 +15,20 @@ function parseQuery(query, params) {
   return [sql, params, full]
 }
 
-export function openDb(rootDriver) {
+function printError(error) {
+  // oxlint-disable-next-line no-console
+  console.error(error)
+}
+
+function toError(error, sql) {
+  if (Error.isError(error)) {
+    return new Error(`${error.message}\nSQL: ${sql}`, { cause: error })
+  } else {
+    return new Error(`${error}\nSQL: ${sql}`)
+  }
+}
+
+export function openDb(rootDriver, { onError = printError } = {}) {
   let cache = new Map()
   let subscriptions = new Set()
   let mounted = new Set()
@@ -49,21 +62,34 @@ export function openDb(rootDriver) {
           if (!db.opened) return $store
           let currentJSON
           let subscribed = false
+          function fail(error) {
+            onError(toError(error, sql))
+          }
           onMount($store, () => {
             subscribed = true
             let unsubscribe
             let store = {
               start() {
                 if (unsubscribe) return
-                unsubscribe = driver.subscribe(sql, params, rows => {
-                  if (!subscribed) return
-                  resolveLoading()
-                  let prevJSON = currentJSON
-                  currentJSON = JSON.stringify(rows)
-                  if (!$store.value || prevJSON !== currentJSON) {
-                    $store.set({ isLoading: false, value: rows })
-                  }
-                })
+                try {
+                  unsubscribe = driver.subscribe(
+                    sql,
+                    params,
+                    rows => {
+                      if (!subscribed) return
+                      resolveLoading()
+                      let prevJSON = currentJSON
+                      currentJSON = JSON.stringify(rows)
+                      if (!$store.value || prevJSON !== currentJSON) {
+                        $store.set({ isLoading: false, value: rows })
+                      }
+                    },
+                    fail
+                  )
+                } catch (e) {
+                  fail(e)
+                  return
+                }
                 subscriptions.add(unsubscribe)
               },
               stop() {

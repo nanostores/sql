@@ -5,7 +5,11 @@ import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { openDb, toDrizzle } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 
-let db = openDb(nodeDriver(':memory:'))
+let db = openDb(nodeDriver(':memory:'), {
+  onError(error) {
+    console.error(error.message)
+  }
+})
 let drizzleDb = drizzle(toDrizzle(db))
 
 let postsTable = sqliteTable('posts', {
@@ -19,9 +23,9 @@ let $posts = db.store(
   drizzleDb.select().from(postsTable).where(eq(postsTable.title, 'hello'))
 )
 
-$posts.subscribe(value => {
-  if (!value.isLoading) {
-    let post = value.value[0]
+$posts.subscribe(state => {
+  if (!state.isLoading) {
+    let post = state.value[0]
     if (post) {
       console.log(`${post.id}: ${post.title}`)
     }

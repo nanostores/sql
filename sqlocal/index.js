@@ -4,11 +4,11 @@ export function sqlocalDriver(filename) {
   let db = new SQLocal({ databasePath: filename, reactive: true })
 
   let driver = {
-    subscribe(query, params, cb) {
+    subscribe(query, params, cb, onError) {
       let reactive = db.reactiveQuery(sql => sql(query, ...params))
       let { unsubscribe } = reactive.subscribe(results => {
         cb(results)
-      })
+      }, onError)
       return () => {
         unsubscribe()
       }

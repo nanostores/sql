@@ -45,7 +45,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    * ```
    *
    * @param query SQL tagged template or Drizzle query.
-   * @returns Reactive store with  `{ isLoading, value }`.
+   * @returns Reactive store with `{ isLoading, value }`.
    */
   store<Row = unknown>(
     query: TemplateStringsArray,
@@ -156,6 +156,34 @@ export interface Database<DBDriver extends Driver = Driver> {
   close(): Promise<void>
 }
 
+export interface DatabaseOptions {
+  /**
+   * Called when a query of {@link Database#store} fails.
+   *
+   * The store of a failed query stays in the loading state forever,
+   * because such failure means a broken database or a wrong query,
+   * not something the user can retry. Show a global «the database is
+   * broken» screen from this callback and report the error, otherwise
+   * the application will wait for the data forever.
+   *
+   * ```ts
+   * const db = openDb(sqlocalDriver('app.sqlite'), {
+   *   onError(error) {
+   *     reportToSentry(error)
+   *     showBrokenDatabaseScreen()
+   *   }
+   * })
+   * ```
+   *
+   * The error message ends with the SQL which failed. The error thrown
+   * by the driver is kept in `error.cause`, with everything the database
+   * put on it (like `code` for `node:sqlite`).
+   *
+   * By default, errors are printed with `console.error()`.
+   */
+  onError?: (error: Error) => void
+}
+
 /**
  * Open a database connection with the given driver.
  *
@@ -167,10 +195,12 @@ export interface Database<DBDriver extends Driver = Driver> {
  * ```
  *
  * @param driver Database driver (SQLocal, Expo, PGLite, or custom).
+ * @param opts Database options.
  * @returns Database instance.
  */
 export function openDb<DBDriver extends Driver>(
-  driver: DBDriver
+  driver: DBDriver,
+  opts?: DatabaseOptions
 ): Database<DBDriver>
 
 type Unsubscribe = () => void | Promise<void>
@@ -179,7 +209,8 @@ export interface DriverTransaction {
   subscribe(
     query: string,
     params: SqlParam[],
-    cb: (result: unknown) => void
+    cb: (result: unknown) => void,
+    onError: (error: unknown) => void
   ): Unsubscribe
 
   exec(query: string, params: SqlParam[]): Promise<unknown>
@@ -188,10 +219,20 @@ export interface DriverTransaction {
 }
 
 export interface Driver {
+  /**
+   * Watch the query and call `cb` with the rows on every change
+   * of the tables it reads.
+   *
+   * The driver must never throw asynchronously: report any failure
+   * of the query to `onError`, so that it reaches
+   * {@link DatabaseOptions#onError} instead of becoming an uncaught
+   * exception in a task nobody owns.
+   */
   subscribe(
     query: string,
     params: SqlParam[],
-    cb: (result: unknown) => void
+    cb: (result: unknown) => void,
+    onError: (error: unknown) => void
   ): Unsubscribe
 
   exec(query: string, params: SqlParam[]): Promise<unknown>
@@ -260,8 +301,13 @@ export function migrateIfNeeded(
 ): ReadableAtom<MigrationStatusValue>
 
 /**
- * Store value for reactive SQL queries. Always has `isLoading: true`,
- * and may include `value` once initial data arrives.
+ * Store value for reactive SQL queries. It starts with `isLoading: true`
+ * and gets `value` once the query returns rows.
+ *
+ * A query which fails never leaves the loading state. Failures are
+ * reported to {@link DatabaseOptions#onError} instead, since a broken
+ * query means a broken database or a bug, not something the user
+ * of the application can retry.
  */
 export type SqlStoreValue<Value = unknown> =
   | { isLoading: true }
@@ -277,6 +323,9 @@ export interface SqlStore<Value = unknown>
    * for the first time. The query runs only while the store has
    * listeners, so subscribe to the store (for instance,
    * with `loadValue()`) for the promise to resolve.
+   *
+   * It is never resolved if the query fails: handle
+   * {@link DatabaseOptions#onError} to not wait forever.
    */
   loading: Promise<void>
 }

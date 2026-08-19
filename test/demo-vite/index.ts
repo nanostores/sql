@@ -76,10 +76,16 @@ function renderCounters(driverName: string): void {
 
   let dbName =
     driverName === 'pglite' ? 'idb://demo-pglite' : `demo-${driverName}.sqlite`
-  let db = openDb(drivers[driverName]!(dbName))
-
   let status = el('p', {})
   app.appendChild(status)
+
+  let db = openDb(drivers[driverName]!(dbName), {
+    onError(error) {
+      status.className = 'error'
+      status.textContent = error.message
+      app.appendChild(status)
+    }
+  })
 
   let $migration = migrateIfNeeded(db, 1, async prevVersion => {
     if (prevVersion < 1) {
@@ -117,13 +123,12 @@ function renderCounterList(db: Database): void {
 
   let $counters = db.store<Counter>`SELECT * FROM counters ORDER BY id`
   $counters.subscribe(state => {
-    if (!('value' in state)) {
+    if (state.isLoading) {
       list.innerHTML = '<p class="loading">Loading…</p>'
       return
     }
     list.innerHTML = ''
-    let counters = state.value ?? []
-    for (let { id, value } of counters) {
+    for (let { id, value } of state.value) {
       list.appendChild(
         el(
           'div',

@@ -6,7 +6,7 @@ import { deepEqual, equal, match, notEqual } from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, test } from 'node:test'
+import { afterEach, describe, mock, test } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
 
 import {
@@ -290,6 +290,31 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
+    test('reports a failed query to onError', async () => {
+      let errors: Error[] = []
+      db = openDb(setup.create(), {
+        onError(error) {
+          errors.push(error)
+        }
+      })
+      await createTable(db, 'items', 'title TEXT')
+
+      let values: SqlStoreValue<Item[]>[] = []
+      let $items = db.store<Item>`SELECT * FROM missing ORDER BY id`
+      $items.subscribe(state => {
+        values.push(state)
+      })
+
+      await setTimeout(50)
+      equal(errors.length, 1)
+      match(errors[0]!.message, /missing/)
+      match(errors[0]!.message, /SQL: SELECT \* FROM missing ORDER BY id/)
+      // The original error of the database is kept for reporting
+      match((errors[0]!.cause as Error).message, /missing/)
+      // The store has no data to show, so it keeps waiting
+      deepEqual(values, [{ isLoading: true }])
+    })
+
     test('unsubscribes', async () => {
       db = openDb(setup.create())
 
@@ -534,6 +559,41 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 }
 
 describe('node', () => {
+  test('recovers after a failed query update', async () => {
+    let errors: Error[] = []
+    let db = openDb(nodeDriver(':memory:'), {
+      onError(error) {
+        errors.push(error)
+      }
+    })
+    let create = 'CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT)'
+    await db.driver.exec(create, [])
+    await db.exec`INSERT INTO items (id, title) VALUES (1, ${'first'})`
+
+    let values: SqlStoreValue<Item[]>[] = []
+    let $items = db.store<Item>`SELECT * FROM items ORDER BY id`
+    $items.subscribe(state => {
+      values.push(state)
+    })
+    await $items.loading
+
+    // Dropping the table breaks the watched query, but not `exec()`
+    await db.driver.exec('DROP TABLE items', [])
+    equal(errors.length, 1)
+    match(errors[0]!.message, /items/)
+    equal(values.length, 2)
+
+    // The store keeps the last rows and updates again after the fix
+    await db.driver.exec(create, [])
+    await db.exec`INSERT INTO items (id, title) VALUES (2, ${'second'})`
+    deepEqual(values[values.length - 1], {
+      isLoading: false,
+      value: [{ id: 2, title: 'second' }]
+    })
+
+    await db.close()
+  })
+
   test('takes write lock on immediate transaction start', async () => {
     let dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
     let writer = openDb(nodeDriver(join(dir, 'test.db')))
@@ -565,5 +625,63 @@ describe('node', () => {
     await writer.close()
     await other.close()
     await rm(dir, { force: true, recursive: true })
+  })
+})
+
+function fakeDriver(subscribe: Driver['subscribe']): Driver {
+  let driver: Driver = {
+    close() {},
+    exec: () => Promise.resolve(),
+    select: () => Promise.resolve([]),
+    subscribe,
+    transaction: cb => cb(driver)
+  }
+  return driver
+}
+
+describe('custom driver', () => {
+  test('catches errors thrown by the driver on subscribe', async () => {
+    let errors: Error[] = []
+    let db = openDb(
+      fakeDriver(() => {
+        throw new Error('Reactive queries are not configured')
+      }),
+      {
+        onError(error) {
+          errors.push(error)
+        }
+      }
+    )
+
+    let $items = db.store<Item>`SELECT * FROM items`
+    $items.subscribe(() => {})
+
+    await setTimeout(10)
+    equal(errors.length, 1)
+    match(errors[0]!.message, /Reactive queries are not configured/)
+    match(errors[0]!.message, /SQL: SELECT \* FROM items/)
+
+    await db.close()
+  })
+
+  test('prints wrapped non-Error failures by default', async () => {
+    let logged = mock.method(console, 'error', () => {})
+
+    let db = openDb(
+      fakeDriver((query, params, cb, onError) => {
+        onError('no tables')
+        return () => {}
+      })
+    )
+    let $items = db.store<Item>`SELECT * FROM items`
+    $items.subscribe(() => {})
+
+    await setTimeout(10)
+    logged.mock.restore()
+    equal(logged.mock.callCount(), 1)
+    let printed = logged.mock.calls[0]!.arguments[0] as Error
+    equal(printed.message, 'no tables\nSQL: SELECT * FROM items')
+
+    await db.close()
   })
 })

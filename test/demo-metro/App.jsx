@@ -3,8 +3,15 @@ import { Button, StyleSheet, Text, View } from 'react-native'
 
 import { expoDriver } from '@nanostores/sql/expo'
 import { migrateIfNeeded, openDb } from '@nanostores/sql'
+import { atom } from 'nanostores'
 
-let db = openDb(expoDriver('expo-demo.sqlite'))
+let $dbError = atom()
+
+let db = openDb(expoDriver('expo-demo.sqlite'), {
+  onError(error) {
+    $dbError.set(error)
+  }
+})
 
 let $migration = migrateIfNeeded(db, 1, async prevVersion => {
   if (prevVersion < 1) {
@@ -21,7 +28,7 @@ function CounterList() {
     return <Text>Loading…</Text>
   }
 
-  let counters = state.value ?? []
+  let counters = state.value
 
   return (
     <View>
@@ -55,7 +62,8 @@ function CounterList() {
   )
 }
 
-function renderContent(migration) {
+function renderContent(migration, dbError) {
+  if (dbError) return <Text>{dbError.message}</Text>
   if ('applying' in migration) return <Text>Running migrations…</Text>
   if ('outdated' in migration) return <Text>Page outdated, please reload.</Text>
   return <CounterList />
@@ -63,11 +71,12 @@ function renderContent(migration) {
 
 export default function App() {
   let migration = useStore($migration)
+  let dbError = useStore($dbError)
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Nano Stores SQL Demo (Expo)</Text>
-      {renderContent(migration)}
+      {renderContent(migration, dbError)}
     </View>
   )
 }

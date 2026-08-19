@@ -9,21 +9,26 @@ export function nodeDriver(filename) {
   let subscribers = new Map()
   let nextId = 0
 
-  function notifySubscribers() {
-    for (let [, sub] of subscribers) {
-      let rows = db.prepare(sub.query).all(...sub.params)
-      sub.cb(toRows(rows))
+  function runSubscriber(sub) {
+    try {
+      sub.cb(toRows(db.prepare(sub.query).all(...sub.params)))
+    } catch (e) {
+      sub.onError(e)
     }
   }
 
+  function notifySubscribers() {
+    for (let [, sub] of subscribers) runSubscriber(sub)
+  }
+
   let driver = {
-    subscribe(query, params, cb) {
+    subscribe(query, params, cb, onError) {
       let id = nextId++
-      subscribers.set(id, { query, params, cb })
+      subscribers.set(id, { cb, onError, params, query })
       // Emulate async for better compatibility
       void Promise.resolve().then(() => {
-        let rows = db.prepare(query).all(...params)
-        cb(toRows(rows))
+        let sub = subscribers.get(id)
+        if (sub) runSubscriber(sub)
       })
       return () => {
         subscribers.delete(id)

@@ -5,7 +5,8 @@ import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { openDb, toDrizzle } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 
-let db = openDb(nodeDriver(':memory:'))
+// THROWS 'onErrror' does not exist in type 'DatabaseOptions'
+let db = openDb(nodeDriver(':memory:'), { onErrror: () => {} })
 let drizzleDb = drizzle(toDrizzle(db))
 
 let postsTable = sqliteTable('posts', {

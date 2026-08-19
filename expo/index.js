@@ -9,8 +9,11 @@ export function expoDriver(filename) {
     let db = await dbReady
     await Promise.all(
       Array.from(subscribers.values()).map(async sub => {
-        let rows = await db.getAllAsync(sub.query, sub.params)
-        sub.cb(rows)
+        try {
+          sub.cb(await db.getAllAsync(sub.query, sub.params))
+        } catch (e) {
+          sub.onError(e)
+        }
       })
     )
   }
@@ -20,14 +23,17 @@ export function expoDriver(filename) {
   })
 
   let driver = {
-    subscribe(query, params, cb) {
+    subscribe(query, params, cb, onError) {
       let id = nextId++
-      subscribers.set(id, { query, params, cb })
-      void dbReady.then(db => {
-        void db.getAllAsync(query, params).then(rows => {
+      subscribers.set(id, { cb, onError, params, query })
+      void dbReady
+        .then(async db => {
+          let rows = await db.getAllAsync(query, params)
           if (subscribers.has(id)) cb(rows)
         })
-      })
+        .catch(e => {
+          if (subscribers.has(id)) onError(e)
+        })
       return () => {
         subscribers.delete(id)
       }

@@ -10,7 +10,7 @@ export function pgliteDriver(uri) {
   let db = new PGlite(uri, { extensions: { live } })
 
   let driver = {
-    subscribe(query, params, cb) {
+    subscribe(query, params, cb, onError) {
       let listener
       let unsubscribed = false
       void db.waitReady
@@ -22,6 +22,9 @@ export function pgliteDriver(uri) {
         .then(async result => {
           listener = result
           if (unsubscribed) await listener.unsubscribe()
+        })
+        .catch(error => {
+          if (!unsubscribed) onError(error)
         })
       return async () => {
         unsubscribed = true
