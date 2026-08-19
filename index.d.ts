@@ -121,10 +121,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    * @param query SQL tagged template or Drizzle query.
    * @returns Promise resolving to the query result.
    */
-  exec(
-    query: TemplateStringsArray,
-    ...params: SqlParam[]
-  ): Promise<void>
+  exec(query: TemplateStringsArray, ...params: SqlParam[]): Promise<void>
   exec(query: DrizzleQuery): Promise<void>
 
   /**
@@ -160,12 +157,6 @@ export interface DatabaseOptions {
   /**
    * Called when a query of {@link Database#store} fails.
    *
-   * The store of a failed query stays in the loading state forever,
-   * because such failure means a broken database or a wrong query,
-   * not something the user can retry. Show a global «the database is
-   * broken» screen from this callback and report the error, otherwise
-   * the application will wait for the data forever.
-   *
    * ```ts
    * const db = openDb(sqlocalDriver('app.sqlite'), {
    *   onError(error) {
@@ -174,10 +165,6 @@ export interface DatabaseOptions {
    *   }
    * })
    * ```
-   *
-   * The error message ends with the SQL which failed. The error thrown
-   * by the driver is kept in `error.cause`, with everything the database
-   * put on it (like `code` for `node:sqlite`).
    *
    * By default, errors are printed with `console.error()`.
    */
@@ -222,11 +209,6 @@ export interface Driver {
   /**
    * Watch the query and call `cb` with the rows on every change
    * of the tables it reads.
-   *
-   * The driver must never throw asynchronously: report any failure
-   * of the query to `onError`, so that it reaches
-   * {@link DatabaseOptions#onError} instead of becoming an uncaught
-   * exception in a task nobody owns.
    */
   subscribe(
     query: string,
@@ -303,11 +285,6 @@ export function migrateIfNeeded(
 /**
  * Store value for reactive SQL queries. It starts with `isLoading: true`
  * and gets `value` once the query returns rows.
- *
- * A query which fails never leaves the loading state. Failures are
- * reported to {@link DatabaseOptions#onError} instead, since a broken
- * query means a broken database or a bug, not something the user
- * of the application can retry.
  */
 export type SqlStoreValue<Value = unknown> =
   | { isLoading: true }
@@ -316,16 +293,14 @@ export type SqlStoreValue<Value = unknown> =
 /**
  * Reactive store of a `SELECT` query created by `db.store`.
  */
-export interface SqlStore<Value = unknown>
-  extends ReadableAtom<SqlStoreValue<Value>> {
+export interface SqlStore<Value = unknown> extends ReadableAtom<
+  SqlStoreValue<Value>
+> {
   /**
    * Promise resolved when the store receives query results
    * for the first time. The query runs only while the store has
    * listeners, so subscribe to the store (for instance,
    * with `loadValue()`) for the promise to resolve.
-   *
-   * It is never resolved if the query fails: handle
-   * {@link DatabaseOptions#onError} to not wait forever.
    */
   loading: Promise<void>
 }
