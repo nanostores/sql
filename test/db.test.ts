@@ -377,20 +377,22 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
     })
 
     test('does not leave an unhandled rejection on ignored query', async () => {
-      let errors: Error[] = []
+      let report: (error: Error) => void
+      let reported = new Promise<Error>(resolve => {
+        report = resolve
+      })
       db = openDb(setup.create(), {
         onError(error) {
-          errors.push(error)
+          report(error)
         }
       })
 
       // The caller can ignore the promise, since a broken database
-      // is not something the caller can fix
+      // is not something the caller can fix. The test runner will fail
+      // if the ignored rejection stays unhandled.
       void db.exec`INSERT INTO missing (title) VALUES (${'first'})`
 
-      await setTimeout(50)
-      equal(errors.length, 1)
-      match(errors[0]!.message, /missing/)
+      match((await reported).message, /missing/)
     })
 
     test('unsubscribes', async () => {
