@@ -155,7 +155,7 @@ export interface Database<DBDriver extends Driver = Driver> {
 
 export interface DatabaseOptions {
   /**
-   * Called when a query of {@link Database#store} fails.
+   * Called when any query of the database fails.
    *
    * ```ts
    * const db = openDb(sqlocalDriver('app.sqlite'), {

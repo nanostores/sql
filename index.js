@@ -34,7 +34,22 @@ export function openDb(rootDriver, { onError = printError } = {}) {
   let mounted = new Set()
   let paused = false
 
-  function createDb(driver) {
+  function reportError(promise, sql) {
+    promise.catch(error => {
+      onError(toError(error, sql))
+    })
+    return promise
+  }
+
+  function createDb(rawDriver) {
+    let driver = Object.assign(Object.create(rawDriver), {
+      exec(query, params) {
+        return reportError(rawDriver.exec(query, params), query)
+      },
+      select(query, params) {
+        return reportError(rawDriver.select(query, params), query)
+      }
+    })
     let db = {
       opened: true,
       driver,

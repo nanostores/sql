@@ -187,7 +187,12 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
     })
 
     test('commits transactions', async () => {
-      db = openDb(setup.create())
+      let errors: Error[] = []
+      db = openDb(setup.create(), {
+        onError(error) {
+          errors.push(error)
+        }
+      })
       await createTable(db, 'logs', 'msg TEXT')
 
       let values: SqlStoreValue<Log[]>[] = []
@@ -228,6 +233,13 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         if (e instanceof Error) error = e
       }
       match(error!.message, /wrongNameColumn/i)
+      // A failed query inside a transaction is reported as well
+      equal(errors.length, 1)
+      match(errors[0]!.message, /wrongNameColumn/i)
+      match(
+        errors[0]!.message,
+        /SQL: INSERT INTO logs \(wrongNameColumn\) VALUES \(1\)/
+      )
       await setTimeout(50)
 
       deepEqual(values, [
@@ -313,6 +325,72 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       match((errors[0]!.cause as Error).message, /missing/)
       // The store has no data to show, so it keeps waiting
       deepEqual(values, [{ isLoading: true }])
+    })
+
+    test('reports a failed one-shot query to onError', async () => {
+      let errors: Error[] = []
+      db = openDb(setup.create(), {
+        onError(error) {
+          errors.push(error)
+        }
+      })
+      await createTable(db, 'items', 'title TEXT')
+
+      let execError: Error | undefined
+      try {
+        await db.exec`INSERT INTO missing (title) VALUES (${'first'})`
+      } catch (e) {
+        if (e instanceof Error) execError = e
+      }
+      // The promise is still rejected for the caller
+      match(execError!.message, /missing/)
+      equal(errors.length, 1)
+      match(errors[0]!.message, /missing/)
+      match(
+        errors[0]!.message,
+        /SQL: INSERT INTO missing \(title\) VALUES \(\?\)/
+      )
+      // The original error of the database is kept for reporting
+      match((errors[0]!.cause as Error).message, /missing/)
+
+      let selectError: Error | undefined
+      try {
+        await db.select`SELECT * FROM missing`
+      } catch (e) {
+        if (e instanceof Error) selectError = e
+      }
+      match(selectError!.message, /missing/)
+      equal(errors.length, 2)
+      match(errors[1]!.message, /SQL: SELECT \* FROM missing/)
+
+      // Queries of `db.driver`, like the ones of Drizzle, are reported too
+      await toDrizzle(db)('SELECT * FROM missing', [], 'all').catch(() => {})
+      equal(errors.length, 3)
+      match(errors[2]!.message, /SQL: SELECT \* FROM missing/)
+
+      // Successful queries do not call the callback
+      await db.exec`INSERT INTO items (title) VALUES (${'first'})`
+      deepEqual(await db.select`SELECT * FROM items`, [
+        { id: 1, title: 'first' }
+      ])
+      equal(errors.length, 3)
+    })
+
+    test('does not leave an unhandled rejection on ignored query', async () => {
+      let errors: Error[] = []
+      db = openDb(setup.create(), {
+        onError(error) {
+          errors.push(error)
+        }
+      })
+
+      // The caller can ignore the promise, since a broken database
+      // is not something the caller can fix
+      void db.exec`INSERT INTO missing (title) VALUES (${'first'})`
+
+      await setTimeout(50)
+      equal(errors.length, 1)
+      match(errors[0]!.message, /missing/)
     })
 
     test('unsubscribes', async () => {
@@ -597,7 +675,12 @@ describe('node', () => {
   test('takes write lock on immediate transaction start', async () => {
     let dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
     let writer = openDb(nodeDriver(join(dir, 'test.db')))
-    let other = openDb(nodeDriver(join(dir, 'test.db')))
+    let locks: Error[] = []
+    let other = openDb(nodeDriver(join(dir, 'test.db')), {
+      onError(error) {
+        locks.push(error)
+      }
+    })
     await writer.driver.exec('CREATE TABLE items (id INTEGER PRIMARY KEY)', [])
 
     async function writeFromOtherConnection(id: number): Promise<string> {
@@ -621,6 +704,8 @@ describe('node', () => {
       { immediate: true }
     )
     match(immediate, /locked/)
+    equal(locks.length, 1)
+    match(locks[0]!.message, /locked/)
 
     await writer.close()
     await other.close()
@@ -660,6 +745,19 @@ describe('custom driver', () => {
     equal(errors.length, 1)
     match(errors[0]!.message, /Reactive queries are not configured/)
     match(errors[0]!.message, /SQL: SELECT \* FROM items/)
+
+    await db.close()
+  })
+
+  test('keeps other driver methods on the reporting driver', async () => {
+    let driver = fakeDriver(() => () => {})
+    let db = openDb(driver)
+
+    notEqual(db.driver.exec, driver.exec)
+    notEqual(db.driver.select, driver.select)
+    equal(db.driver.subscribe, driver.subscribe)
+    equal(db.driver.transaction, driver.transaction)
+    equal(db.driver.close, driver.close)
 
     await db.close()
   })
