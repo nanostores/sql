@@ -1,6 +1,6 @@
 {
   "name": "@nanostores/sql",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "description": "Nano Stores wrapper around SQLite or PGLite to generate reactive stores from SQL queries",
   "keywords": [
     "expo",
