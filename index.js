@@ -21,7 +21,7 @@ function printError(error) {
 }
 
 function toError(error, sql) {
-  if (Error.isError(error)) {
+  if (error instanceof Error) {
     return new Error(`${error.message}\nSQL: ${sql}`, { cause: error })
   } else {
     return new Error(`${error}\nSQL: ${sql}`)
