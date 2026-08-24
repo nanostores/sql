@@ -15,17 +15,26 @@ function parseQuery(query, params) {
   return [sql, params, full]
 }
 
-function printError(error) {
-  // oxlint-disable-next-line no-console
-  console.error(error)
+function report(listeners, cause, sql) {
+  let error
+  if (cause instanceof Error) {
+    error = new Error(`${cause.message}\nSQL: ${sql}`, { cause })
+  } else {
+    error = new Error(`${cause}\nSQL: ${sql}`)
+  }
+  if (listeners.length === 0) {
+    // oxlint-disable-next-line no-console
+    console.error(error)
+  } else {
+    for (let listener of listeners) listener(error)
+  }
 }
 
-function toError(error, sql) {
-  if (error instanceof Error) {
-    return new Error(`${error.message}\nSQL: ${sql}`, { cause: error })
-  } else {
-    return new Error(`${error}\nSQL: ${sql}`)
-  }
+function reportAsync(listeners, promise, sql) {
+  promise.catch(error => {
+    report(listeners, error, sql)
+  })
+  return promise
 }
 
 export function openDb(rootDriver) {
@@ -35,28 +44,13 @@ export function openDb(rootDriver) {
   let paused = false
   let listeners = []
 
-  function report(error) {
-    if (listeners.length === 0) {
-      printError(error)
-    } else {
-      for (let listener of listeners) listener(error)
-    }
-  }
-
-  function reportError(promise, sql) {
-    promise.catch(error => {
-      report(toError(error, sql))
-    })
-    return promise
-  }
-
   function createDb(rawDriver) {
     let driver = Object.assign(Object.create(rawDriver), {
       exec(query, params) {
-        return reportError(rawDriver.exec(query, params), query)
+        return reportAsync(listeners, rawDriver.exec(query, params), query)
       },
       select(query, params) {
-        return reportError(rawDriver.select(query, params), query)
+        return reportAsync(listeners, rawDriver.select(query, params), query)
       }
     })
     let db = {
@@ -93,9 +87,6 @@ export function openDb(rootDriver) {
           if (!db.opened) return $store
           let currentJSON
           let subscribed = false
-          function fail(error) {
-            report(toError(error, sql))
-          }
           onMount($store, () => {
             subscribed = true
             let unsubscribe
@@ -115,10 +106,12 @@ export function openDb(rootDriver) {
                         $store.set({ isLoading: false, value: rows })
                       }
                     },
-                    fail
+                    e => {
+                      report(listeners, e, sql)
+                    }
                   )
                 } catch (e) {
-                  fail(e)
+                  report(listeners, e, sql)
                   return
                 }
                 subscriptions.add(unsubscribe)
