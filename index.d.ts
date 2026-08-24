@@ -151,24 +151,25 @@ export interface Database<DBDriver extends Driver = Driver> {
    * Close the database connection.
    */
   close(): Promise<void>
-}
 
-export interface DatabaseOptions {
   /**
-   * Called when any query of the database fails.
+   * Subscribe to the errors of the failed queries.
    *
    * ```ts
-   * const db = openDb(sqlocalDriver('app.sqlite'), {
-   *   onError(error) {
-   *     reportToSentry(error)
-   *     showBrokenDatabaseScreen()
-   *   }
+   * const db = openDb(sqlocalDriver('app.sqlite'))
+   * db.on('error', error => {
+   *   reportToSentry(error)
+   *   showBrokenDatabaseScreen()
    * })
    * ```
    *
-   * By default, errors are printed with `console.error()`.
+   * Without listeners errors are printed with `console.error()`.
+   *
+   * @param event The event name.
+   * @param listener The listener function.
+   * @returns Unbind listener from event.
    */
-  onError?: (error: Error) => void
+  on(event: 'error', listener: (error: Error) => void): () => void
 }
 
 /**
@@ -182,12 +183,10 @@ export interface DatabaseOptions {
  * ```
  *
  * @param driver Database driver (SQLocal, Expo, PGLite, or custom).
- * @param opts Database options.
  * @returns Database instance.
  */
 export function openDb<DBDriver extends Driver>(
-  driver: DBDriver,
-  opts?: DatabaseOptions
+  driver: DBDriver
 ): Database<DBDriver>
 
 type Unsubscribe = () => void | Promise<void>

@@ -276,3 +276,16 @@ const $migrationStatus = migrateIfNeeded(
 
 When you update your Drizzle schema, run `npx drizzle-kit generate` again,
 import the new file, and append it to `migrations`.
+
+## Errors
+
+Failed queries are printed with `console.error()`. Use `db.on('error')`
+to send them to your error tracker or to show the user that the database
+is broken:
+
+```ts
+const unbind = db.on('error', error => {
+  reportToSentry(error)
+  showBrokenDatabaseScreen()
+})
+```

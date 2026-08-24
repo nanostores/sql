@@ -5,10 +5,9 @@ import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { openDb, toDrizzle } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 
-let db = openDb(nodeDriver(':memory:'), {
-  onError(error) {
-    console.error(error.message)
-  }
+let db = openDb(nodeDriver(':memory:'))
+let unbind = db.on('error', error => {
+  console.error(error.message)
 })
 let drizzleDb = drizzle(toDrizzle(db))
 
@@ -57,3 +56,4 @@ console.log(added)
 
 db.pause()
 db.resume()
+unbind()

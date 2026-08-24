@@ -79,12 +79,11 @@ function renderCounters(driverName: string): void {
   let status = el('p', {})
   app.appendChild(status)
 
-  let db = openDb(drivers[driverName]!(dbName), {
-    onError(error) {
-      status.className = 'error'
-      status.textContent = error.message
-      app.appendChild(status)
-    }
+  let db = openDb(drivers[driverName]!(dbName))
+  db.on('error', error => {
+    status.className = 'error'
+    status.textContent = error.message
+    app.appendChild(status)
   })
 
   let $migration = migrateIfNeeded(db, 1, async prevVersion => {

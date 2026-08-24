@@ -28,15 +28,24 @@ function toError(error, sql) {
   }
 }
 
-export function openDb(rootDriver, { onError = printError } = {}) {
+export function openDb(rootDriver) {
   let cache = new Map()
   let subscriptions = new Set()
   let mounted = new Set()
   let paused = false
+  let listeners = []
+
+  function report(error) {
+    if (listeners.length === 0) {
+      printError(error)
+    } else {
+      for (let listener of listeners) listener(error)
+    }
+  }
 
   function reportError(promise, sql) {
     promise.catch(error => {
-      onError(toError(error, sql))
+      report(toError(error, sql))
     })
     return promise
   }
@@ -53,6 +62,13 @@ export function openDb(rootDriver, { onError = printError } = {}) {
     let db = {
       opened: true,
       driver,
+
+      on(event, listener) {
+        listeners.push(listener)
+        return () => {
+          listeners = listeners.filter(i => i !== listener)
+        }
+      },
 
       pause() {
         paused = true
@@ -78,7 +94,7 @@ export function openDb(rootDriver, { onError = printError } = {}) {
           let currentJSON
           let subscribed = false
           function fail(error) {
-            onError(toError(error, sql))
+            report(toError(error, sql))
           }
           onMount($store, () => {
             subscribed = true

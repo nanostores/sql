@@ -188,10 +188,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
     test('commits transactions', async () => {
       let errors: Error[] = []
-      db = openDb(setup.create(), {
-        onError(error) {
-          errors.push(error)
-        }
+      db = openDb(setup.create())
+      db.on('error', error => {
+        errors.push(error)
       })
       await createTable(db, 'logs', 'msg TEXT')
 
@@ -302,12 +301,11 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
-    test('reports a failed query to onError', async () => {
+    test('reports a failed query to error listeners', async () => {
       let errors: Error[] = []
-      db = openDb(setup.create(), {
-        onError(error) {
-          errors.push(error)
-        }
+      db = openDb(setup.create())
+      db.on('error', error => {
+        errors.push(error)
       })
       await createTable(db, 'items', 'title TEXT')
 
@@ -327,12 +325,11 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       deepEqual(values, [{ isLoading: true }])
     })
 
-    test('reports a failed one-shot query to onError', async () => {
+    test('reports a failed one-shot query to error listeners', async () => {
       let errors: Error[] = []
-      db = openDb(setup.create(), {
-        onError(error) {
-          errors.push(error)
-        }
+      db = openDb(setup.create())
+      db.on('error', error => {
+        errors.push(error)
       })
       await createTable(db, 'items', 'title TEXT')
 
@@ -381,10 +378,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       let reported = new Promise<Error>(resolve => {
         report = resolve
       })
-      db = openDb(setup.create(), {
-        onError(error) {
-          report(error)
-        }
+      db = openDb(setup.create())
+      db.on('error', error => {
+        report(error)
       })
 
       // The caller can ignore the promise, since a broken database
@@ -641,10 +637,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 describe('node', () => {
   test('recovers after a failed query update', async () => {
     let errors: Error[] = []
-    let db = openDb(nodeDriver(':memory:'), {
-      onError(error) {
-        errors.push(error)
-      }
+    let db = openDb(nodeDriver(':memory:'))
+    db.on('error', error => {
+      errors.push(error)
     })
     let create = 'CREATE TABLE items (id INTEGER PRIMARY KEY, title TEXT)'
     await db.driver.exec(create, [])
@@ -678,10 +673,9 @@ describe('node', () => {
     let dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
     let writer = openDb(nodeDriver(join(dir, 'test.db')))
     let locks: Error[] = []
-    let other = openDb(nodeDriver(join(dir, 'test.db')), {
-      onError(error) {
-        locks.push(error)
-      }
+    let other = openDb(nodeDriver(join(dir, 'test.db')))
+    other.on('error', error => {
+      locks.push(error)
     })
     await writer.driver.exec('CREATE TABLE items (id INTEGER PRIMARY KEY)', [])
 
@@ -732,13 +726,11 @@ describe('custom driver', () => {
     let db = openDb(
       fakeDriver(() => {
         throw new Error('Reactive queries are not configured')
-      }),
-      {
-        onError(error) {
-          errors.push(error)
-        }
-      }
+      })
     )
+    db.on('error', error => {
+      errors.push(error)
+    })
 
     let $items = db.store<Item>`SELECT * FROM items`
     $items.subscribe(() => {})
@@ -761,6 +753,49 @@ describe('custom driver', () => {
     equal(db.driver.transaction, driver.transaction)
     equal(db.driver.close, driver.close)
 
+    await db.close()
+  })
+
+  test('stacks error listeners and unbinds them', async () => {
+    let logged = mock.method(console, 'error', () => {})
+    let db = openDb(
+      fakeDriver((query, params, cb, onError) => {
+        onError('no tables')
+        return () => {}
+      })
+    )
+
+    let app: Error[] = []
+    let library: Error[] = []
+    let unbindApp = db.on('error', error => {
+      app.push(error)
+    })
+    let unbindLibrary = db.on('error', error => {
+      library.push(error)
+    })
+
+    // Both the app and the library working with the same database
+    // see the error, and it is not printed anymore
+    db.store`SELECT * FROM a`.subscribe(() => {})
+    await setTimeout(10)
+    equal(app.length, 1)
+    equal(library.length, 1)
+    equal(logged.mock.callCount(), 0)
+
+    // Unbinding the app's listener does not touch the library's one
+    unbindApp()
+    db.store`SELECT * FROM b`.subscribe(() => {})
+    await setTimeout(10)
+    equal(app.length, 1)
+    equal(library.length, 2)
+
+    // Without listeners errors are printed again
+    unbindLibrary()
+    db.store`SELECT * FROM c`.subscribe(() => {})
+    await setTimeout(10)
+    equal(logged.mock.callCount(), 1)
+
+    logged.mock.restore()
     await db.close()
   })
 

@@ -5,8 +5,10 @@ import { drizzle } from 'drizzle-orm/sqlite-proxy'
 import { openDb, toDrizzle } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 
-// THROWS 'onErrror' does not exist in type 'DatabaseOptions'
-let db = openDb(nodeDriver(':memory:'), { onErrror: () => {} })
+// THROWS Expected 1 arguments, but got 2
+let db = openDb(nodeDriver(':memory:'), { onError: () => {} })
+// THROWS not assignable to parameter of type '"error"'
+db.on('eror', () => {})
 let drizzleDb = drizzle(toDrizzle(db))
 
 let postsTable = sqliteTable('posts', {
