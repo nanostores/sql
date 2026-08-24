@@ -45,7 +45,7 @@
     "start": "pnpm run /^start:/"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "^0.5.5",
+    "@electric-sql/pglite": "^0.5.6",
     "@logux/oxc-configs": "^1.1.0",
     "@size-limit/preset-small-lib": "^13.0.3",
     "@types/node": "^26.2.0",
