@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.5.0
+
+- Moved errors from `onError` option to `error` event.
+
 ## 0.4.3
 
 - Fixed error reporting.
