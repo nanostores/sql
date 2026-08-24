@@ -1,9 +1,8 @@
 import { useStore } from '@nanostores/react'
-import { Button, StyleSheet, Text, View } from 'react-native'
-
-import { expoDriver } from '@nanostores/sql/expo'
 import { migrateIfNeeded, openDb } from '@nanostores/sql'
+import { expoDriver } from '@nanostores/sql/expo'
 import { atom } from 'nanostores'
+import { Button, StyleSheet, Text, View } from 'react-native'
 
 let $dbError = atom()
 
