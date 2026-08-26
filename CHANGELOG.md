@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.5.2
+
+- Fixed changes detection in `node` driver.
+
 ## 0.5.1
 
 - Fixed binary columns support.
