@@ -9,7 +9,7 @@ export interface DrizzleQuery<Result = unknown> extends PromiseLike<Result> {
  * to the database driver as-is, without any conversion, so use values
  * supported by your database (for instance, SQLite has no booleans).
  */
-export type SqlParam = boolean | null | number | string
+export type SqlParam = boolean | null | number | string | Uint8Array
 
 export interface TransactionOptions {
   /**

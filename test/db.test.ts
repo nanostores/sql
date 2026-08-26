@@ -51,19 +51,28 @@ interface Log {
   msg: string
 }
 
+interface Attachment {
+  id: number
+  name: string
+  data: Uint8Array
+}
+
 interface DriverSetup {
   create: () => Driver
   autoincrement: string
+  binary: string
 }
 
 const DRIVERS: Record<string, DriverSetup> = {
   node: {
     create: () => nodeDriver(':memory:'),
-    autoincrement: 'INTEGER PRIMARY KEY AUTOINCREMENT'
+    autoincrement: 'INTEGER PRIMARY KEY AUTOINCREMENT',
+    binary: 'BLOB'
   },
   pglite: {
     create: () => pgliteDriver('memory://'),
-    autoincrement: 'SERIAL PRIMARY KEY'
+    autoincrement: 'SERIAL PRIMARY KEY',
+    binary: 'BYTEA'
   }
 }
 
@@ -136,6 +145,46 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       deepEqual(updated, [
         { id: 1, title: 'first' },
         { id: 2, title: 'second' }
+      ])
+    })
+
+    test('reads and writes binary data', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'files', `name TEXT, data ${setup.binary}`)
+
+      let icon = new Uint8Array([0, 1, 127, 128, 255])
+      await db.exec`INSERT INTO files (name, data) VALUES (${'icon'}, ${icon})`
+
+      let files = await db.select<Attachment>`SELECT * FROM files ORDER BY id`
+      deepEqual(files, [{ id: 1, name: 'icon', data: icon }])
+
+      // Binary values work as query parameters too
+      let found = await db.select<Attachment>`
+        SELECT name FROM files WHERE data = ${icon}
+      `
+      deepEqual(found, [{ name: 'icon' }])
+
+      let $files = db.store<Attachment>`SELECT * FROM files ORDER BY id`
+      let values: SqlStoreValue<Attachment[]>[] = []
+      $files.subscribe(state => {
+        values.push(state)
+      })
+      await $files.loading
+
+      let photo = new Uint8Array([255, 216, 255, 0])
+      await db.exec`INSERT INTO files (name, data) VALUES (${'photo'}, ${photo})`
+      await setTimeout(50)
+
+      deepEqual(values, [
+        { isLoading: true },
+        { isLoading: false, value: [{ id: 1, name: 'icon', data: icon }] },
+        {
+          isLoading: false,
+          value: [
+            { id: 1, name: 'icon', data: icon },
+            { id: 2, name: 'photo', data: photo }
+          ]
+        }
       ])
     })
 
