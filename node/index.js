@@ -9,6 +9,21 @@ export function nodeDriver(filename) {
   let subscribers = new Map()
   let nextId = 0
 
+  let changesQuery = db.prepare(
+    `SELECT total_changes() AS "rows",` +
+      ` (SELECT "schema_version" FROM pragma_schema_version()) AS "schema"`
+  )
+  let last = changesQuery.get()
+
+  function hasChanges() {
+    let current = changesQuery.get()
+    if (current.rows === last.rows && current.schema === last.schema) {
+      return false
+    }
+    last = current
+    return true
+  }
+
   function runSubscriber(sub) {
     try {
       sub.cb(toRows(db.prepare(sub.query).all(...sub.params)))
@@ -38,14 +53,17 @@ export function nodeDriver(filename) {
     exec(query, params) {
       return new Promise(resolve => {
         let result = db.prepare(query).run(...params)
-        notifySubscribers()
+        if (hasChanges()) notifySubscribers()
         resolve(result)
       })
     },
 
     select(query, params) {
       return new Promise(resolve => {
-        resolve(toRows(db.prepare(query).all(...params)))
+        // `select()` is also the only way to read `RETURNING` of a write
+        let rows = toRows(db.prepare(query).all(...params))
+        if (hasChanges()) notifySubscribers()
+        resolve(rows)
       })
     },
 
@@ -60,15 +78,20 @@ export function nodeDriver(filename) {
               resolve(db.prepare(query).run(...params))
             })
           },
-          select: driver.select
+          select(query, params) {
+            return new Promise(resolve => {
+              resolve(toRows(db.prepare(query).all(...params)))
+            })
+          }
         }
         result = await callback(tx)
         db.exec('COMMIT')
       } catch (e) {
         db.exec('ROLLBACK')
+        hasChanges()
         throw e
       }
-      notifySubscribers()
+      if (hasChanges()) notifySubscribers()
       return result
     },
 

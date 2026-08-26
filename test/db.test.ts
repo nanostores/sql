@@ -148,6 +148,40 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       ])
     })
 
+    test('detects changes of RETURNING queries', async () => {
+      db = openDb(setup.create())
+      await createTable(db, 'items', 'title TEXT')
+
+      let values: SqlStoreValue<Item[]>[] = []
+      let $items = db.store<Item>`SELECT * FROM items ORDER BY id`
+      $items.subscribe(state => {
+        values.push(state)
+      })
+      await $items.loading
+
+      // `select()` is the only way to read `RETURNING`, so a write can come
+      // through it and still has to update the stores
+      let inserted = await db.select<Item>`
+        INSERT INTO items (title) VALUES (${'first'}) RETURNING *
+      `
+      deepEqual(inserted, [{ id: 1, title: 'first' }])
+
+      await setTimeout(50)
+      deepEqual(values, [
+        { isLoading: true },
+        { isLoading: false, value: [] },
+        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+      ])
+
+      let deleted = await db.select<Item>`
+        DELETE FROM items WHERE id = ${1} RETURNING *
+      `
+      deepEqual(deleted, [{ id: 1, title: 'first' }])
+
+      await setTimeout(50)
+      deepEqual(values[values.length - 1], { isLoading: false, value: [] })
+    })
+
     test('reads and writes binary data', async () => {
       db = openDb(setup.create())
       await createTable(db, 'files', `name TEXT, data ${setup.binary}`)
@@ -714,6 +748,53 @@ describe('node', () => {
       isLoading: false,
       value: [{ id: 2, title: 'second' }]
     })
+
+    await db.close()
+  })
+
+  test('re-runs queries only on real changes', async () => {
+    let db = openDb(nodeDriver(':memory:'))
+    await db.driver.exec('CREATE TABLE items (id INTEGER PRIMARY KEY)', [])
+
+    let runs: { id: number }[][] = []
+    db.driver.subscribe(
+      'SELECT * FROM items ORDER BY id',
+      [],
+      rows => {
+        runs.push(rows as { id: number }[])
+      },
+      () => {}
+    )
+    await setTimeout(10)
+    deepEqual(runs, [[]])
+
+    // A `RETURNING` write goes through `select()` and re-runs the queries
+    let inserted =
+      await db.select`INSERT INTO items (id) VALUES (1) RETURNING *`
+    deepEqual(inserted, [{ id: 1 }])
+    deepEqual(runs, [[], [{ id: 1 }]])
+
+    // A read-only `select()` does not re-run them
+    await db.select`SELECT * FROM items`
+    equal(runs.length, 2)
+
+    // Neither does a write that changed no rows
+    await db.exec`DELETE FROM items WHERE id = ${404}`
+    equal(runs.length, 2)
+
+    // A rolled back transaction changed no rows either
+    await db
+      .transaction(async tx => {
+        await tx.exec`INSERT INTO items (id) VALUES (${2})`
+        throw new Error('Rollback')
+      })
+      .catch(() => {})
+    await db.select`SELECT * FROM items`
+    equal(runs.length, 2)
+
+    // But a schema change re-runs the queries without any changed row
+    await db.driver.exec('ALTER TABLE items ADD COLUMN title TEXT', [])
+    deepEqual(runs[2], [{ id: 1, title: null }])
 
     await db.close()
   })
