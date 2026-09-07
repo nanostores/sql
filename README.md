@@ -77,6 +77,17 @@ export default defineConfig({
 })
 ```
 
+The second argument accepts [SQLocal options](https://sqlocal.dev/api/client)
+like `readOnly`, `verbose`, `onInit`, or `onConnect`:
+
+```ts
+export const db = openDb(
+  sqlocalDriver('app.sqlite', {
+    onInit: sql => [sql`PRAGMA foreign_keys = ON`]
+  })
+)
+```
+
 ### Expo
 
 [Expo](https://docs.expo.dev/versions/latest/sdk/sqlite/) for React Native:

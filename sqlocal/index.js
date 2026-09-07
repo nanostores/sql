@@ -1,7 +1,7 @@
 import { SQLocal } from 'sqlocal'
 
-export function sqlocalDriver(filename) {
-  let db = new SQLocal({ databasePath: filename, reactive: true })
+export function sqlocalDriver(filename, opts) {
+  let db = new SQLocal({ ...opts, databasePath: filename, reactive: true })
 
   let driver = {
     subscribe(query, params, cb, onError) {
