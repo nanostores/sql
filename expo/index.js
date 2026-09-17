@@ -18,8 +18,15 @@ export function expoDriver(filename) {
     )
   }
 
+  // SQLite reports every changed row, so we refresh once per batch of changes
+  let scheduled = false
   let subscription = addDatabaseChangeListener(() => {
-    void notifySubscribers()
+    if (scheduled) return
+    scheduled = true
+    setTimeout(() => {
+      scheduled = false
+      void notifySubscribers()
+    }, 0)
   })
 
   let driver = {
