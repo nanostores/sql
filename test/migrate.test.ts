@@ -1,4 +1,4 @@
-import { deepEqual, equal } from 'node:assert/strict'
+import { deepEqual, equal, throws } from 'node:assert/strict'
 import { afterEach, beforeEach, test } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
 
@@ -15,6 +15,16 @@ const STORAGE_KEY = 'nanostores-sql:version'
 let storage: Record<string, string> = {}
 let storageListeners: ((e: StorageEvent) => void)[] = []
 let originalAddEventListener = globalThis.addEventListener
+let originalLocalStorage = globalThis.localStorage
+let originalNavigator = Object.getOwnPropertyDescriptor(globalThis, 'navigator')
+
+function setNavigator(value: unknown): void {
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value,
+    writable: true
+  })
+}
 
 beforeEach(() => {
   storage = {}
@@ -36,6 +46,10 @@ beforeEach(() => {
 
 afterEach(() => {
   globalThis.addEventListener = originalAddEventListener
+  globalThis.localStorage = originalLocalStorage
+  if (originalNavigator) {
+    Object.defineProperty(globalThis, 'navigator', originalNavigator)
+  }
 })
 
 function fireStorageEvent(key: string, newValue: string | null): void {
@@ -168,4 +182,130 @@ test('runs incremental migrations', async () => {
   deepEqual($status.value, { ready: true })
   deepEqual(steps, [2, 3])
   equal(storage[STORAGE_KEY], '3')
+})
+
+test('reports failed migration', async () => {
+  db = openDb(nodeDriver(':memory:'))
+
+  let values: MigrationStatusValue[] = []
+  let $status = migrateIfNeeded(db, 1, async () => {
+    await db!.exec`CREATE TABLE users (id INTEGER PRIMARY KEY`
+  })
+  $status.subscribe(state => {
+    values.push(state)
+  })
+
+  let $users = db.store`SELECT * FROM users`
+  $users.subscribe(() => {})
+
+  await setTimeout(50)
+  equal(values.length, 2)
+  equal('error' in values[1]! && values[1].error instanceof Error, true)
+  equal(storage[STORAGE_KEY], undefined)
+  // The database stays paused, since its schema is broken
+  deepEqual($users.value, { status: 'loading' })
+})
+
+test('wraps non-Error migration failures', async () => {
+  db = openDb(nodeDriver(':memory:'))
+  let $status = migrateIfNeeded(db, 1, () => {
+    // oxlint-disable-next-line only-throw-error
+    throw 'boom'
+  })
+  await setTimeout(50)
+  let status = $status.get()
+  equal('error' in status && status.error.message, 'boom')
+})
+
+test('supports version 0', async () => {
+  storage[STORAGE_KEY] = '0'
+  db = openDb(nodeDriver(':memory:'))
+  let migrated = false
+
+  let $status = migrateIfNeeded(db, 0, () => {
+    migrated = true
+  })
+
+  deepEqual($status.value, { ready: true })
+  await setTimeout(50)
+  equal(migrated, false)
+})
+
+test('applies migration only once between tabs', async () => {
+  let queue: Promise<unknown> = Promise.resolve()
+  let locked = 0
+  setNavigator({
+    locks: {
+      request(name: string, cb: () => Promise<unknown>) {
+        equal(name, STORAGE_KEY)
+        locked += 1
+        // Web Locks run callbacks one after another
+        let result = queue.then(cb)
+        queue = result.catch(() => {})
+        return result
+      }
+    }
+  })
+
+  db = openDb(nodeDriver(':memory:'))
+  let other = openDb(nodeDriver(':memory:'))
+  let versions: number[] = []
+  let migrate = (prevVersion: number): void => {
+    versions.push(prevVersion)
+  }
+
+  let $status = migrateIfNeeded(db, 2, migrate)
+  let $otherStatus = migrateIfNeeded(other, 2, migrate)
+  deepEqual($status.value, { applying: true })
+  deepEqual($otherStatus.value, { applying: true })
+
+  await setTimeout(50)
+  equal(locked, 2)
+  deepEqual(versions, [-1])
+  deepEqual($status.value, { ready: true })
+  deepEqual($otherStatus.value, { ready: true })
+  equal(storage[STORAGE_KEY], '2')
+
+  // A tab with older version, which got the lock after the newer tab
+  let old = openDb(nodeDriver(':memory:'))
+  storage[STORAGE_KEY] = '1'
+  let $oldStatus = migrateIfNeeded(old, 1, () => {})
+  deepEqual($oldStatus.value, { ready: true })
+  storage[STORAGE_KEY] = '0'
+  let $upgrading = migrateIfNeeded(old, 1, () => {
+    storage[STORAGE_KEY] = '2'
+  })
+  await setTimeout(50)
+  deepEqual($upgrading.value, { ready: true })
+
+  storage[STORAGE_KEY] = '0'
+  let stale = openDb(nodeDriver(':memory:'))
+  let $stale = migrateIfNeeded(stale, 1, () => {})
+  // Another tab moved the database further while we waited for the lock
+  storage[STORAGE_KEY] = '3'
+  await setTimeout(50)
+  deepEqual($stale.value, { outdated: true })
+  equal(stale.opened, false)
+
+  await other.close()
+  await old.close()
+})
+
+test('throws without localStorage', () => {
+  db = openDb(nodeDriver(':memory:'))
+  // @ts-expect-error React Native has no localStorage
+  delete globalThis.localStorage
+  throws(() => {
+    migrateIfNeeded(db!, 1, () => {})
+  }, /expo-sqlite\/localStorage\/install/)
+})
+
+test('works without storage events', async () => {
+  // @ts-expect-error React Native has no addEventListener
+  delete globalThis.addEventListener
+  db = openDb(nodeDriver(':memory:'))
+  let $status = migrateIfNeeded(db, 1, () => {})
+  await setTimeout(50)
+  deepEqual($status.value, { ready: true })
+  equal(storage[STORAGE_KEY], '1')
 })

@@ -3,7 +3,10 @@ import { live } from '@electric-sql/pglite/live'
 
 function toPostgres(query) {
   let i = 0
-  return query.replace(/\?/g, () => '$' + ++i)
+  // Skip `?` inside 'strings' and "identifiers"
+  return query.replace(/'(?:[^']|'')*'|"[^"]*"|\?/g, match => {
+    return match === '?' ? '$' + ++i : match
+  })
 }
 
 export function pgliteDriver(uri) {
@@ -65,7 +68,6 @@ export function pgliteDriver(uri) {
     },
 
     close() {
-      db.offNotification()
       return db.close()
     }
   }

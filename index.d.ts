@@ -27,7 +27,62 @@ export interface TransactionOptions {
   immediate?: boolean
 }
 
-export interface Database<DBDriver extends Driver = Driver> {
+/**
+ * Database inside a transaction. It can only run queries: nested
+ * transactions and stores are not supported.
+ */
+export interface Transaction {
+  /**
+   * Run a `SELECT` query once and get the rows without creating a store.
+   * Use it when you need data outside of UI, for instance, in event handlers.
+   *
+   * ```ts
+   * const users = await db.select<User>`SELECT * FROM users WHERE id = ${id}`
+   * ```
+   *
+   * Also accepts a Drizzle query builder:
+   *
+   * ```ts
+   * const users = await db.select(drizzleDb.select().from(usersTable))
+   * ```
+   *
+   * @param query SQL tagged template or Drizzle query.
+   * @returns Promise resolving to the query rows.
+   */
+  select<Row = unknown>(
+    query: TemplateStringsArray,
+    ...params: SqlParam[]
+  ): Promise<Row[]>
+  select<Result>(query: DrizzleQuery<Result>): Promise<Result>
+
+  /**
+   * Execute a write query (INSERT, UPDATE, DELETE, etc.).
+   *
+   * ```ts
+   * await db.exec`DELETE FROM users WHERE id = ${id}`
+   * ```
+   *
+   * Also accepts a Drizzle query builder:
+   *
+   * ```ts
+   * await db.exec(drizzleDb.delete(usersTable).where(eq(usersTable.id, id)))
+   * ```
+   *
+   * @param query SQL tagged template or Drizzle query.
+   * @returns Promise resolving to the query result.
+   */
+  exec(query: TemplateStringsArray, ...params: SqlParam[]): Promise<void>
+  exec(query: DrizzleQuery): Promise<void>
+
+  /**
+   * The underlying database driver instance.
+   */
+  driver: DriverTransaction
+}
+
+export interface Database<
+  DBDriver extends Driver = Driver
+> extends Transaction {
   /**
    * Create a reactive store from a `SELECT` query. The store updates
    * automatically when the database changes.
@@ -54,29 +109,6 @@ export interface Database<DBDriver extends Driver = Driver> {
   store<Result>(query: DrizzleQuery<Result>): SqlStore<Result>
 
   /**
-   * Run a `SELECT` query once and get the rows without creating a store.
-   * Use it when you need data outside of UI, for instance, in event handlers.
-   *
-   * ```ts
-   * const users = await db.select<User>`SELECT * FROM users WHERE id = ${id}`
-   * ```
-   *
-   * Also accepts a Drizzle query builder:
-   *
-   * ```ts
-   * const users = await db.select(drizzleDb.select().from(usersTable))
-   * ```
-   *
-   * @param query SQL tagged template or Drizzle query.
-   * @returns Promise resolving to the query rows.
-   */
-  select<Row = unknown>(
-    query: TemplateStringsArray,
-    ...params: SqlParam[]
-  ): Promise<Row[]>
-  select<Result>(query: DrizzleQuery<Result>): Promise<Result>
-
-  /**
    * Run a callback inside a database transaction.
    *
    * ```ts
@@ -96,33 +128,14 @@ export interface Database<DBDriver extends Driver = Driver> {
    * }, { immediate: true })
    * ```
    *
-   * @param callback Function receiving a transactional `Database` instance.
+   * @param callback Function receiving a `Transaction` to run queries in.
    * @param opts Transaction options.
    * @returns Promise resolving to the callback's return value.
    */
   transaction<T>(
-    callback: (tx: Database<DBDriver>) => Promise<T>,
+    callback: (tx: Transaction) => Promise<T>,
     opts?: TransactionOptions
   ): Promise<T>
-
-  /**
-   * Execute a write query (INSERT, UPDATE, DELETE, etc.).
-   *
-   * ```ts
-   * await db.exec`DELETE FROM users WHERE id = ${id}`
-   * ```
-   *
-   * Also accepts a Drizzle query builder:
-   *
-   * ```ts
-   * await db.exec(drizzleDb.delete(usersTable).where(eq(usersTable.id, id)))
-   * ```
-   *
-   * @param query SQL tagged template or Drizzle query.
-   * @returns Promise resolving to the query result.
-   */
-  exec(query: TemplateStringsArray, ...params: SqlParam[]): Promise<void>
-  exec(query: DrizzleQuery): Promise<void>
 
   /**
    * Postpone the first query of the stores mounted after this call
@@ -192,19 +205,6 @@ export function openDb<DBDriver extends Driver>(
 type Unsubscribe = () => void | Promise<void>
 
 export interface DriverTransaction {
-  subscribe(
-    query: string,
-    params: SqlParam[],
-    cb: (result: unknown) => void,
-    onError: (error: unknown) => void
-  ): Unsubscribe
-
-  exec(query: string, params: SqlParam[]): Promise<unknown>
-
-  select(query: string, params: SqlParam[]): Promise<unknown[]>
-}
-
-export interface Driver {
   /**
    * Watch the query and call `cb` with the rows on every change
    * of the tables it reads.
@@ -219,7 +219,9 @@ export interface Driver {
   exec(query: string, params: SqlParam[]): Promise<unknown>
 
   select(query: string, params: SqlParam[]): Promise<unknown[]>
+}
 
+export interface Driver extends DriverTransaction {
   transaction<T>(
     callback: (tx: DriverTransaction) => Promise<T>,
     opts?: TransactionOptions
@@ -251,6 +253,7 @@ export function toDrizzle(
 
 export type MigrationStatusValue =
   | { applying: true }
+  | { error: Error }
   | { outdated: true }
   | { ready: true }
 
@@ -259,7 +262,14 @@ export type MigrationStatusValue =
  * Returns a reactive store with the current migration status.
  *
  * Store queries are paused while migrations are applying
- * (see {@link Database#pause}).
+ * (see {@link Database#pause}). If the migration throws, the status
+ * becomes `{ error }` and the database stays paused.
+ *
+ * The version is kept in `localStorage`. Other browser tabs get
+ * `{ outdated: true }` and a closed database when a newer version
+ * is applied. Tabs use the Web Locks API (when available) to apply
+ * the migration only once. In React Native import
+ * `expo-sqlite/localStorage/install` before calling it.
  *
  * ```ts
  * const $status = migrateIfNeeded(db, 2, async prevVersion => {

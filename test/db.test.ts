@@ -654,6 +654,15 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       let rows = await loadValue(db.store(drizzleDb.select().from(postsTable)))
       deepEqual(rows, [{ id: 1, title: 'updated' }])
+
+      let one = await drizzleDb.select().from(postsTable).get()
+      deepEqual(one, { id: 1, title: 'updated' })
+      let none = await drizzleDb
+        .select()
+        .from(postsTable)
+        .where(eq(postsTable.id, 404))
+        .get()
+      equal(none, undefined)
     })
 
     test('generates compatible Drizzle database', async () => {
@@ -669,6 +678,10 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       let result = await proxy('SELECT * FROM posts', [], 'all')
       equal(result.rows.length, 1)
       deepEqual(result.rows[0], [1, 'via proxy'])
+
+      // Test 'get' path: a single row instead of a list
+      let single = await proxy('SELECT * FROM posts', [], 'get')
+      deepEqual(single.rows, [1, 'via proxy'])
 
       // Let async cleanup complete
       await setTimeout(50)
@@ -836,6 +849,21 @@ describe('node', () => {
     await writer.close()
     await other.close()
     await rm(dir, { force: true, recursive: true })
+  })
+})
+
+describe('pglite', () => {
+  test('keeps ? inside quotes', async () => {
+    let db = openDb(pgliteDriver('memory://'))
+    await db.driver.exec('CREATE TABLE "q?" (id SERIAL PRIMARY KEY)', [])
+    await db.exec`INSERT INTO "q?" DEFAULT VALUES`
+
+    let rows = await db.select`
+      SELECT ${'a'} AS a, 'why?' AS b, 'it''s?' AS c, ${'d'} AS d FROM "q?"
+    `
+    deepEqual(rows, [{ a: 'a', b: 'why?', c: "it's?", d: 'd' }])
+
+    await db.close()
   })
 })
 

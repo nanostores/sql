@@ -22,6 +22,11 @@ let $posts = db.store(
   drizzleDb.select().from(postsTable).where(eq(postsTable.title, 'hello'))
 )
 
+await db.transaction(async tx => {
+  // THROWS 'transaction' does not exist on type 'Transaction'
+  await tx.transaction(async () => {})
+})
+
 let rows = await db.select<{ id: number; title: string }>`SELECT * FROM posts`
 // THROWS 'name' does not exist on type '{ id: number; title: string; }'
 console.log(rows[0]?.name)

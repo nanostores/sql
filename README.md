@@ -141,6 +141,10 @@ export const db = openDb(pgliteDriver('app.sqlite'))
 
 Note, that SQL syntax has small differences between PostgreSQL and SQLite.
 
+Every `?` outside of quotes is treated as a parameter placeholder. Use
+the `jsonb_exists()` function family instead of the `?`, `?|` and `?&`
+JSONB operators.
+
 ### Custom Driver
 
 You can support to any other database, just implement [`Driver`](./index.d.ts) interface.
@@ -152,9 +156,9 @@ You can support to any other database, just implement [`Driver`](./index.d.ts) i
 ```ts
 import { migrateIfNeeded } from '@nanostores/sql'
 
-const $migrationStatus = migrateIfNeeded(db, 2, prevVersion => {
+const $migrationStatus = migrateIfNeeded(db, 2, async prevVersion => {
   if (prevVersion <= 1) {
-    await db.sql`CREATE TABLE users
+    await db.exec`CREATE TABLE users
     (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT)`
   }
 })
@@ -165,11 +169,22 @@ const App = () => {
     return <Loader />
   } else if (status.outdated) {
     return <ReloadPageWarning />
+  } else if (status.error) {
+    return <BrokenDatabaseScreen error={status.error} />
   } else {
     return <AppUI />
   }
 }
 ```
+
+The store queries are paused until the migration is applied. If the migration
+throws, the status becomes `{ error }` and the database stays paused.
+
+The version is kept in `localStorage`, so it is shared between browser tabs.
+When several tabs open a new version at once, they take a [Web Lock] to apply
+the migration only once.
+
+[Web Lock]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Locks_API
 
 If you are implementing your own migrations, call `db.close()` in browser tabs with old version of client JS to stop using database (and show warning asking to reload page or reload page automatically).
 

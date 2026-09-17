@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 import { drizzle } from 'drizzle-orm/sqlite-proxy'
 
-import { openDb, toDrizzle } from '../index.js'
+import { migrateIfNeeded, openDb, toDrizzle } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 
 let db = openDb(nodeDriver(':memory:'))
@@ -53,6 +53,16 @@ let added = await db.transaction(
   { immediate: true }
 )
 console.log(added)
+
+let $migration = migrateIfNeeded(db, 1, async prevVersion => {
+  if (prevVersion < 1) await db.exec`CREATE TABLE users (id INTEGER)`
+})
+$migration.subscribe(status => {
+  if ('error' in status) console.error(status.error.message)
+})
+
+let one = await drizzleDb.select().from(postsTable).get()
+console.log(one?.title)
 
 db.pause()
 db.resume()
