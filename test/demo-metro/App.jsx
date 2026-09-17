@@ -23,7 +23,7 @@ function CounterList() {
   let $counters = db.store`SELECT * FROM counters ORDER BY id`
   let state = useStore($counters)
 
-  if (state.isLoading) {
+  if (state.status === 'loading') {
     return <Text>Loading…</Text>
   }
 

@@ -26,7 +26,7 @@ const User = ({ id }) => {
   // or const $users = db.store(drizzleDb.select().from(usersTable)
   //   .where(eq(usersTable.id, id)))
   const users = useStore($users)
-  if (users.isLoading) {
+  if (users.status === 'loading') {
     return <Loader>
   } else {
     return {users.value[0].name}

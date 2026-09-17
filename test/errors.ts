@@ -27,9 +27,9 @@ let rows = await db.select<{ id: number; title: string }>`SELECT * FROM posts`
 console.log(rows[0]?.name)
 
 $posts.subscribe(value => {
-  // THROWS isLoading: true
+  // THROWS status: "loading"
   console.log(value.value.length)
-  if (!value.isLoading) {
+  if (value.status === 'ready') {
     let post = value.value[0]
     if (post) {
       // THROWS 'name' does not exist on type '{ id: number; title: string; }'

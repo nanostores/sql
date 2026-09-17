@@ -79,7 +79,7 @@ export function openDb(rootDriver) {
         if (cache.has(cacheKey)) {
           return cache.get(cacheKey)
         } else {
-          let $store = atom({ isLoading: true })
+          let $store = atom({ status: 'loading' })
           let resolveLoading
           $store.loading = new Promise(resolve => {
             resolveLoading = resolve
@@ -103,7 +103,7 @@ export function openDb(rootDriver) {
                       let prevJSON = currentJSON
                       currentJSON = JSON.stringify(rows)
                       if (!$store.value || prevJSON !== currentJSON) {
-                        $store.set({ isLoading: false, value: rows })
+                        $store.set({ status: 'ready', value: rows })
                       }
                     },
                     e => {

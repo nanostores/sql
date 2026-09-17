@@ -23,7 +23,7 @@ let $posts = db.store(
 )
 
 $posts.subscribe(state => {
-  if (!state.isLoading) {
+  if (state.status === 'ready') {
     let post = state.value[0]
     if (post) {
       console.log(`${post.id}: ${post.title}`)

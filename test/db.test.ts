@@ -26,7 +26,7 @@ function loadValue<Value>(
     let done = false
     let unsubscribe: () => void
     unsubscribe = store.subscribe(state => {
-      if (!state.isLoading) {
+      if (state.status === 'ready') {
         resolve(state.value)
         done = true
         if (unsubscribe) unsubscribe()
@@ -103,20 +103,20 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       $items.subscribe(state => {
         values.push(state)
       })
-      deepEqual(values, [{ isLoading: true }])
+      deepEqual(values, [{ status: 'loading' }])
 
       await setTimeout(50)
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] }
       ])
 
       await db.exec`INSERT INTO items (title) VALUES (${'second'})`
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] },
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, title: 'first' },
             { id: 2, title: 'second' }
@@ -168,9 +168,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       await setTimeout(50)
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [] },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+        { status: 'loading' },
+        { status: 'ready', value: [] },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] }
       ])
 
       let deleted = await db.select<Item>`
@@ -179,7 +179,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       deepEqual(deleted, [{ id: 1, title: 'first' }])
 
       await setTimeout(50)
-      deepEqual(values[values.length - 1], { isLoading: false, value: [] })
+      deepEqual(values[values.length - 1], { status: 'ready', value: [] })
     })
 
     test('reads and writes binary data', async () => {
@@ -210,10 +210,10 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(50)
 
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, name: 'icon', data: icon }] },
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, name: 'icon', data: icon }] },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, name: 'icon', data: icon },
             { id: 2, name: 'photo', data: photo }
@@ -291,13 +291,13 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(50)
 
       deepEqual(values, [
-        { isLoading: true },
+        { status: 'loading' },
         {
-          isLoading: false,
+          status: 'ready',
           value: []
         },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, msg: 'one' },
             { id: 2, msg: 'two' }
@@ -325,13 +325,13 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(50)
 
       deepEqual(values, [
-        { isLoading: true },
+        { status: 'loading' },
         {
-          isLoading: false,
+          status: 'ready',
           value: []
         },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, msg: 'one' },
             { id: 2, msg: 'two' }
@@ -353,13 +353,13 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         injected.push(state)
       })
 
-      deepEqual(injected, [{ isLoading: true }])
+      deepEqual(injected, [{ status: 'loading' }])
       await setTimeout(50)
 
       // Should return no rows, not all rows
       deepEqual(injected, [
-        { isLoading: true },
-        { isLoading: false, value: [] }
+        { status: 'loading' },
+        { status: 'ready', value: [] }
       ])
 
       let execInjection = "'); DROP TABLE secrets; --"
@@ -373,9 +373,9 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       await setTimeout(50)
       deepEqual(all, [
-        { isLoading: true },
+        { status: 'loading' },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, data: 'top-secret' },
             { id: 2, data: execInjection }
@@ -405,7 +405,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       // The original error of the database is kept for reporting
       match((errors[0]!.cause as Error).message, /missing/)
       // The store has no data to show, so it keeps waiting
-      deepEqual(values, [{ isLoading: true }])
+      deepEqual(values, [{ status: 'loading' }])
     })
 
     test('reports a failed one-shot query to error listeners', async () => {
@@ -492,11 +492,11 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await db.exec`INSERT INTO items (title) VALUES (${'second'})`
       await setTimeout(50)
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] }
       ])
       deepEqual($items.value, {
-        isLoading: false,
+        status: 'ready',
         value: [{ id: 1, title: 'first' }]
       })
 
@@ -508,12 +508,12 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
         newSubscription.push(state)
       })
       await setTimeout(10)
-      // Re-subscribing keeps the last value instead of flashing isLoading,
+      // Re-subscribing keeps the last value instead of flashing loading,
       // then updates once the fresh query resolves
       deepEqual(newSubscription, [
-        { isLoading: false, value: [{ id: 1, title: 'first' }] },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, title: 'first' },
             { id: 2, title: 'second' }
@@ -523,16 +523,16 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       await db.exec`DELETE FROM items WHERE id = ${2}`
       deepEqual(newSubscription, [
-        { isLoading: false, value: [{ id: 1, title: 'first' }] },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] },
         {
-          isLoading: false,
+          status: 'ready',
           value: [
             { id: 1, title: 'first' },
             { id: 2, title: 'second' }
           ]
         },
         {
-          isLoading: false,
+          status: 'ready',
           value: [{ id: 1, title: 'first' }]
         }
       ])
@@ -547,7 +547,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       let unbind = $items.subscribe(() => {})
       await $items.loading
       deepEqual($items.value, {
-        isLoading: false,
+        status: 'ready',
         value: [{ id: 1, title: 'first' }]
       })
       unbind()
@@ -566,13 +566,13 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       })
 
       await setTimeout(50)
-      deepEqual(values, [{ isLoading: true }])
+      deepEqual(values, [{ status: 'loading' }])
 
       db.resume()
       await setTimeout(50)
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] }
       ])
     })
 
@@ -594,7 +594,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
 
       db.resume()
       await setTimeout(50)
-      deepEqual(values, [{ isLoading: true }])
+      deepEqual(values, [{ status: 'loading' }])
     })
 
     test('stops mounted stores while paused', async () => {
@@ -609,8 +609,8 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       })
       await setTimeout(50)
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] }
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] }
       ])
 
       db.pause()
@@ -622,14 +622,14 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       db.resume()
       await setTimeout(50)
       deepEqual(values, [
-        { isLoading: true },
-        { isLoading: false, value: [{ id: 1, title: 'first' }] },
-        { isLoading: false, value: [{ id: 1, msg: 'second' }] }
+        { status: 'loading' },
+        { status: 'ready', value: [{ id: 1, title: 'first' }] },
+        { status: 'ready', value: [{ id: 1, msg: 'second' }] }
       ])
 
       await db.exec`INSERT INTO items (msg) VALUES (${'third'})`
       deepEqual(values[3], {
-        isLoading: false,
+        status: 'ready',
         value: [
           { id: 1, msg: 'second' },
           { id: 2, msg: 'third' }
@@ -685,7 +685,7 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       let storeValues: SqlStoreValue<unknown[]>[] = []
       $store.subscribe(v => storeValues.push(v))
       await setTimeout(50)
-      deepEqual(storeValues, [{ isLoading: true }])
+      deepEqual(storeValues, [{ status: 'loading' }])
 
       // select returns a promise that never resolves
       let selectResolved = false
@@ -745,7 +745,7 @@ describe('node', () => {
     await db.driver.exec(create, [])
     await db.exec`INSERT INTO items (id, title) VALUES (2, ${'second'})`
     deepEqual(values[values.length - 1], {
-      isLoading: false,
+      status: 'ready',
       value: [{ id: 2, title: 'second' }]
     })
 

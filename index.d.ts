@@ -45,7 +45,7 @@ export interface Database<DBDriver extends Driver = Driver> {
    * ```
    *
    * @param query SQL tagged template or Drizzle query.
-   * @returns Reactive store with `{ isLoading, value }`.
+   * @returns Reactive store with `{ status, value }`.
    */
   store<Row = unknown>(
     query: TemplateStringsArray,
@@ -282,12 +282,12 @@ export function migrateIfNeeded(
 ): ReadableAtom<MigrationStatusValue>
 
 /**
- * Store value for reactive SQL queries. It starts with `isLoading: true`
+ * Store value for reactive SQL queries. It starts with `status: 'loading'`
  * and gets `value` once the query returns rows.
  */
 export type SqlStoreValue<Value = unknown> =
-  | { isLoading: true }
-  | { isLoading: false; value: Value }
+  | { status: 'loading' }
+  | { status: 'ready'; value: Value }
 
 /**
  * Reactive store of a `SELECT` query created by `db.store`.
