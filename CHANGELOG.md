@@ -2,6 +2,18 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.6.0
+
+- Moved`{ isLoading, value }` to `{ status, value }` of Nano Stores async API.
+- Added `{ error }` status to `migrateIfNeeded()` on failed migration.
+- Added Web Locks to apply migration only once between browser tabs.
+- Added `Transaction` type to prevent nested transactions.
+- Fixed `get()` support in `toDrizzle()`.
+- Fixed `?` inside quotes in `pglite` driver.
+- Fixed version `0` support in `migrateIfNeeded()`.
+- Fixed `migrateIfNeeded()` error message in React Native.
+- Fixed refreshing stores on every changed row in `expo` driver.
+
 ## 0.5.3
 
 - Fixed passing options to `sqlocal` driver.
