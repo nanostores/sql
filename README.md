@@ -103,6 +103,14 @@ import { expoDriver } from '@nanostores/sql/expo'
 export const db = openDb(expoDriver('app.sqlite'))
 ```
 
+React Native has no `localStorage`, which `migrateIfNeeded` uses
+to keep the schema version. Install the polyfill from `expo-sqlite`
+before calling it:
+
+```ts
+import 'expo-sqlite/localStorage/install'
+```
+
 ### Node.js
 
 For CI test you can use `nodeDriver`.

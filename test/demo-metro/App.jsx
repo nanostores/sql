@@ -1,3 +1,5 @@
+import 'expo-sqlite/localStorage/install'
+
 import { useStore } from '@nanostores/react'
 import { migrateIfNeeded, openDb } from '@nanostores/sql'
 import { expoDriver } from '@nanostores/sql/expo'
