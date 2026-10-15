@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.7.0
+
+- Added `db.driver.persistent` to detect in-memory DB in the browser.
+
 ## 0.6.0
 
 - Moved`{ isLoading, value }` to `{ status, value }` of Nano Stores async API.
