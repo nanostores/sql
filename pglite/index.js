@@ -72,8 +72,10 @@ export function pgliteDriver(uri) {
       return !!uri && !uri.startsWith('memory://')
     },
 
-    close() {
-      return db.close()
+    async close() {
+      // PGlite never resolves `close()` called before it is ready
+      await db.waitReady
+      await db.close()
     }
   }
   return driver
