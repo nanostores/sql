@@ -39,6 +39,9 @@ console.log(rows[0]?.title)
 let drizzleRows = await db.select(drizzleDb.select().from(postsTable))
 console.log(drizzleRows[0]?.title)
 
+let persistent: boolean = await db.driver.persistent()
+console.log(persistent)
+
 await db.exec`INSERT INTO posts (title, rank, published, author)
   VALUES (${'hello'}, ${1}, ${true}, ${null})`
 

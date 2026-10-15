@@ -82,6 +82,10 @@ export function expoDriver(filename) {
       return result
     },
 
+    async persistent() {
+      return filename !== ':memory:'
+    },
+
     async close() {
       subscription.remove()
       subscribers.clear()

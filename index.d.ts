@@ -228,6 +228,20 @@ export interface Driver extends DriverTransaction {
   ): Promise<T>
 
   close(): void | Promise<void>
+
+  /**
+   * Whether the database keeps data between app restarts.
+   * It is `false` for in-memory databases.
+   *
+   * ```ts
+   * if (!(await db.driver.persistent())) {
+   *   showWarning('Data will be lost after closing the app')
+   * }
+   * ```
+   *
+   * Optional for custom drivers. All built-in drivers have it.
+   */
+  persistent?(): Promise<boolean>
 }
 
 /**

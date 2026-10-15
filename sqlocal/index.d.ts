@@ -4,4 +4,4 @@ import type { Driver } from '../index.js'
 
 export type SqlocalOptions = Omit<ClientConfig, 'databasePath' | 'reactive'>
 
-export function sqlocalDriver(filename: string, opts?: SqlocalOptions): Driver
+export function sqlocalDriver(filename: string, opts?: SqlocalOptions): Required<Driver>

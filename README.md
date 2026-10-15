@@ -69,8 +69,8 @@ export const db = openDb(sqlocalDriver('app.sqlite'))
 Add a worker workaround to Vite (see [docs](https://github.com/DallasHoff/sqlocal/blob/main/README.md#cross-origin-isolation)):
 
 ```ts
-import { defineConfig } from 'vite'
 import sqlocal from 'sqlocal/vite'
+import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [sqlocal()]
@@ -148,6 +148,17 @@ JSONB operators.
 ### Custom Driver
 
 You can support to any other database, just implement [`Driver`](./index.d.ts) interface.
+
+### In-memory Database
+
+`db.driver.persistent()` tells whether the database keeps data between app restarts (for instance, when the browser
+has no OPFS).
+
+```ts
+if (!(await db.driver.persistent())) {
+  showWarning('Data will be lost after closing the app')
+}
+```
 
 ## Migrations
 

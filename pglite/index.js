@@ -67,6 +67,11 @@ export function pgliteDriver(uri) {
       })
     },
 
+    async persistent() {
+      // The same check as PGlite uses to choose the in-memory file system
+      return !!uri && !uri.startsWith('memory://')
+    },
+
     close() {
       return db.close()
     }

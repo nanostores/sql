@@ -38,6 +38,12 @@ export function sqlocalDriver(filename, opts) {
       })
     },
 
+    async persistent() {
+      // In-memory and temporary databases have no file
+      let [main] = await db.sql('PRAGMA database_list')
+      return !!main?.file
+    },
+
     close() {
       return db.destroy()
     }

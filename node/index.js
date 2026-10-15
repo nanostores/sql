@@ -95,6 +95,10 @@ export function nodeDriver(filename) {
       return result
     },
 
+    async persistent() {
+      return filename !== ':memory:' && filename !== ''
+    },
+
     close() {
       subscribers.clear()
       db.close()
