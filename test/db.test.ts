@@ -687,6 +687,38 @@ for (let [driverName, setup] of Object.entries(DRIVERS)) {
       await setTimeout(50)
     })
 
+    if (driverName === 'node') {
+      test('detects in-memory database', async () => {
+        let dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
+        let memory = openDb(nodeDriver(':memory:'))
+        let temporary = openDb(nodeDriver(''))
+        let file = openDb(nodeDriver(join(dir, 'app.sqlite')))
+
+        equal(await memory.driver.persistent(), false)
+        equal(await temporary.driver.persistent(), false)
+        equal(await file.driver.persistent(), true)
+
+        await Promise.all([memory.close(), temporary.close(), file.close()])
+        await rm(dir, { force: true, recursive: true })
+      })
+    }
+
+    if (driverName === 'pglite') {
+      test('detects in-memory database', async () => {
+        let dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
+        let memory = openDb(pgliteDriver('memory://'))
+        let empty = openDb(pgliteDriver(''))
+        let file = openDb(pgliteDriver(join(dir, 'pg')))
+
+        equal(await memory.driver.persistent(), false)
+        equal(await empty.driver.persistent(), false)
+        equal(await file.driver.persistent(), true)
+
+        await Promise.all([memory.close(), empty.close(), file.close()])
+        await rm(dir, { force: true, recursive: true })
+      })
+    }
+
     test('closes database', async () => {
       db = openDb(setup.create())
       equal(db.opened, true)
@@ -849,41 +881,6 @@ describe('node', () => {
     await writer.close()
     await other.close()
     await rm(dir, { force: true, recursive: true })
-  })
-})
-
-describe('persistent', () => {
-  let dir: string | undefined
-
-  afterEach(async () => {
-    if (dir) await rm(dir, { force: true, recursive: true })
-    dir = undefined
-  })
-
-  test('detects in-memory node database', async () => {
-    dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
-    let memory = openDb(nodeDriver(':memory:'))
-    let temporary = openDb(nodeDriver(''))
-    let file = openDb(nodeDriver(join(dir, 'app.sqlite')))
-
-    equal(await memory.driver.persistent(), false)
-    equal(await temporary.driver.persistent(), false)
-    equal(await file.driver.persistent(), true)
-
-    await Promise.all([memory.close(), temporary.close(), file.close()])
-  })
-
-  test('detects in-memory pglite database', async () => {
-    dir = await mkdtemp(join(tmpdir(), 'nanostores-sql-'))
-    let memory = openDb(pgliteDriver('memory://'))
-    let empty = openDb(pgliteDriver(''))
-    let file = openDb(pgliteDriver(join(dir, 'pg')))
-
-    equal(await memory.driver.persistent(), false)
-    equal(await empty.driver.persistent(), false)
-    equal(await file.driver.persistent(), true)
-
-    await Promise.all([memory.close(), empty.close(), file.close()])
   })
 })
 
