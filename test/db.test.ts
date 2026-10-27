@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, mock, test } from 'node:test'
 import { setTimeout } from 'node:timers/promises'
+import { MessageChannel } from 'node:worker_threads'
 
 import {
   openDb,
@@ -18,6 +19,8 @@ import {
 } from '../index.js'
 import { nodeDriver } from '../node/index.js'
 import { pgliteDriver } from '../pglite/index.js'
+import { wasmWorker } from '../wasm-worker/index.js'
+import { wasmDriver } from '../wasm/index.js'
 
 function loadValue<Value>(
   store: ReadableAtom<SqlStoreValue<Value>>
@@ -73,6 +76,17 @@ const DRIVERS: Record<string, DriverSetup> = {
     create: () => pgliteDriver('memory://'),
     autoincrement: 'SERIAL PRIMARY KEY',
     binary: 'BYTEA'
+  },
+  wasm: {
+    create: () => {
+      let { port1, port2 } = new MessageChannel()
+      void wasmWorker(sqlite3 => new sqlite3.oo1.DB(':memory:'), {
+        port: port2
+      })
+      return wasmDriver(port1)
+    },
+    autoincrement: 'INTEGER PRIMARY KEY AUTOINCREMENT',
+    binary: 'BLOB'
   }
 }
 

@@ -21,8 +21,9 @@ export interface TransactionOptions {
    * can read the same data and the second `INSERT` will fail
    * with `SQLITE_BUSY` or with a constraint error.
    *
-   * It is supported by SQLite drivers with own transactions: `node`
-   * and `expo`. Other drivers do not need it and will ignore the option.
+   * It is supported by SQLite drivers with own transactions: `node`,
+   * `expo`, and `wasm`. Other drivers do not need it and will ignore
+   * the option.
    */
   immediate?: boolean
 }

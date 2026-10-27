@@ -6,6 +6,7 @@ import {
 } from '../../index.js'
 import { pgliteDriver } from '../../pglite/index.js'
 import { sqlocalDriver } from '../../sqlocal/index.js'
+import { wasmDriver } from '../../wasm/index.js'
 
 let app = document.getElementById('app')!
 let path = location.pathname.replace(/\/$/, '')
@@ -17,7 +18,14 @@ interface Counter {
 
 let drivers: Record<string, (name: string) => Driver> = {
   sqlocal: sqlocalDriver,
-  pglite: pgliteDriver
+  pglite: pgliteDriver,
+  wasm: name =>
+    wasmDriver(
+      new Worker(new URL('./db-worker.ts', import.meta.url), {
+        name,
+        type: 'module'
+      })
+    )
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(

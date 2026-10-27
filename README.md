@@ -7,8 +7,8 @@
 from SQL queries. This wrapper us useful if you moved logic from UI components
 to smart stores.
 
-- Support multiple databases drivers: **SQLocal, Expo, PGLite**,
-  or your **custom** driver.
+- Support multiple databases drivers: **official SQLite WASM, SQLocal, Expo,
+  PGLite**, or your **custom** driver.
 - Can be used in **browser** with OPFS ot with **React Native**.
 - Can be used with **Drizzle** to have type-safe query generation
   or with plain SQL strings to be very **small in JS bundle**.
@@ -87,6 +87,116 @@ export const db = openDb(
   })
 )
 ```
+
+### SQLite WASM
+
+Low-level [SQLite WASM](https://sqlite.org/wasm) driver to save space
+in JS bundle if you don’t need JS functions in SQL from SQLocal and want
+a full control.
+
+```bash
+npm add @sqlite.org/sqlite-wasm
+```
+
+Run SQLite in a worker (for instance, `db-worker.ts`):
+
+```ts
+import { wasmWorker } from '@nanostores/sql/wasm-worker'
+
+wasmWorker(sqlite3 => new sqlite3.oo1.OpfsDb('app.sqlite'), {
+  // Update stores in other browser tabs with the same database
+  channel: 'app-db'
+})
+```
+
+Connect to the worker on the page:
+
+```ts
+import { openDb } from '@nanostores/sql'
+import { wasmDriver } from '@nanostores/sql/wasm'
+
+export const db = openDb(
+  wasmDriver(
+    new Worker(new URL('./db-worker.ts', import.meta.url), { type: 'module' })
+  )
+)
+```
+
+The page bundle has only the driver. SQLite and its WebAssembly file
+are loaded only by the worker.
+
+`OpfsDb` needs cross-origin isolated page. Send these HTTP headers
+in production and set them in the bundler’s dev server:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+Use `credentialless` instead of `require-corp` to load images from other
+origins without CORS headers.
+
+For browsers without cross-origin isolation (like Safari, which has
+no `credentialless`) use [`opfs-sahpool` VFS], which supports only one
+tab with the database:
+
+```ts
+wasmWorker(async sqlite3 => {
+  let pool = await sqlite3.installOpfsSAHPoolVfs()
+  return new pool.OpfsSAHPoolDb('/app.sqlite')
+})
+```
+
+Use `sqlite3.oo1.DB(':memory:')` for in-memory database. To run
+the database without worker (for instance, in tests), connect both sides
+by `MessageChannel`:
+
+```ts
+const { port1, port2 } = new MessageChannel()
+wasmWorker(sqlite3 => new sqlite3.oo1.DB(':memory:'), { port: port2 })
+export const db = openDb(wasmDriver(port1))
+```
+
+`wasmWorker()` returns a promise, which rejects on the opening error
+(all queries will fail with it too). The worker and the page can send
+own messages through the same worker. The driver ignores them.
+
+[`opfs-sahpool` VFS]: https://sqlite.org/wasm/doc/trunk/persistence.md#vfs-opfs-sahpool
+
+#### Vite
+
+Vite should not pre-bundle SQLite to keep the URL of WebAssembly file
+and should build workers as ES modules:
+
+```ts
+import { defineConfig } from 'vite'
+
+const headers = {
+  'Cross-Origin-Embedder-Policy': 'require-corp',
+  'Cross-Origin-Opener-Policy': 'same-origin'
+}
+
+export default defineConfig({
+  optimizeDeps: {
+    exclude: ['@sqlite.org/sqlite-wasm']
+  },
+  preview: { headers },
+  server: { headers },
+  worker: {
+    format: 'es'
+  }
+})
+```
+
+#### Other Bundlers
+
+- Keep `new Worker(new URL('./db-worker.ts', import.meta.url))`
+  in the source code. Webpack 5, Rspack, and Parcel detect it
+  and create a separated worker bundle.
+- SQLite loads `sqlite3.wasm` by `new URL('sqlite3.wasm', import.meta.url)`.
+  The bundler should copy it as an asset and must not inline SQLite’s JS
+  in a way, which breaks this URL.
+- Build the worker as ES module.
 
 ### Expo
 
