@@ -2,6 +2,10 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.8.0
+
+- Added own low-level SQLite driver.
+
 ## 0.7.0
 
 - Added `db.driver.persistent` to detect in-memory DB in the browser.
