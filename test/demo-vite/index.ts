@@ -19,13 +19,17 @@ interface Counter {
 let drivers: Record<string, (name: string) => Driver> = {
   sqlocal: sqlocalDriver,
   pglite: pgliteDriver,
-  wasm: name =>
-    wasmDriver(
-      new Worker(new URL('./db-worker.ts', import.meta.url), {
-        name,
-        type: 'module'
-      })
-    )
+  wasm: name => wasmWorkerDriver(`opfs:${name}`),
+  sahpool: name => wasmWorkerDriver(`sahpool:${name}`)
+}
+
+function wasmWorkerDriver(name: string): ReturnType<typeof wasmDriver> {
+  return wasmDriver(
+    new Worker(new URL('./db-worker.ts', import.meta.url), {
+      name,
+      type: 'module'
+    })
+  )
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(
@@ -127,6 +131,45 @@ function renderCounterList(db: Database): void {
       await db.exec`INSERT INTO counters (value) VALUES (0)`
     })
   )
+
+  let driver = db.driver as Partial<ReturnType<typeof wasmDriver>>
+  if (driver.export) {
+    let exportDb = driver.export
+    let writing: ReturnType<typeof setInterval> | undefined
+    app.appendChild(
+      el(
+        'p',
+        {},
+        // Close the tab with the database during writes in other tabs
+        button('Write every 100 ms', () => {
+          if (writing) {
+            clearInterval(writing)
+            writing = undefined
+          } else {
+            writing = setInterval(async () => {
+              await db.exec`UPDATE counters SET value = value + 1`
+            }, 100)
+          }
+        }),
+        // Block other tabs by dialog inside transaction
+        button('Transaction with confirm()', async () => {
+          await db.transaction(async tx => {
+            await tx.exec`UPDATE counters SET value = value + 100`
+            if (!confirm('Commit?')) throw new Error('Cancelled')
+            await tx.exec`UPDATE counters SET value = value - 99`
+          })
+        }),
+        button('Export', async () => {
+          let file = await exportDb()
+          let a = el('a', {
+            download: 'demo.sqlite',
+            href: URL.createObjectURL(new Blob([new Uint8Array(file)]))
+          })
+          a.click()
+        })
+      )
+    )
+  }
 
   let $counters = db.store<Counter>`SELECT * FROM counters ORDER BY id`
   $counters.subscribe(state => {

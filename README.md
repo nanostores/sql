@@ -103,10 +103,16 @@ Run SQLite in a worker (for instance, `db-worker.ts`):
 ```ts
 import { wasmWorker } from '@nanostores/sql/wasm-worker'
 
-wasmWorker(sqlite3 => new sqlite3.oo1.OpfsDb('app.sqlite'), {
-  // Update stores in other browser tabs with the same database
-  channel: 'app-db'
-})
+wasmWorker(
+  sqlite3 => {
+    let db = new sqlite3.oo1.OpfsDb('app.sqlite')
+    // Faster reading, since only one connection uses the file
+    db.exec('PRAGMA locking_mode = EXCLUSIVE')
+    return db
+  },
+  // Web Lock name to use one connection for all browser tabs
+  { shared: 'app-db' }
+)
 ```
 
 Connect to the worker on the page:
@@ -122,9 +128,6 @@ export const db = openDb(
 )
 ```
 
-The page bundle has only the driver. SQLite and its WebAssembly file
-are loaded only by the worker.
-
 `OpfsDb` needs cross-origin isolated page. Send these HTTP headers
 in production and set them in the bundler’s dev server:
 
@@ -137,31 +140,51 @@ Use `credentialless` instead of `require-corp` to load images from other
 origins without CORS headers.
 
 For browsers without cross-origin isolation (like Safari, which has
-no `credentialless`) use [`opfs-sahpool` VFS], which supports only one
-tab with the database:
+no `credentialless`) use [`opfs-sahpool` VFS]. Pass both options,
+or a failed start will delete the database (needs SQLite WASM 3.54):
 
 ```ts
-wasmWorker(async sqlite3 => {
-  let pool = await sqlite3.installOpfsSAHPoolVfs()
-  return new pool.OpfsSAHPoolDb('/app.sqlite')
-})
+const poolOptions = {
+  preserveOnInitFailure: true,
+  forceReinitIfPreviouslyFailed: true
+}
+
+wasmWorker(
+  async sqlite3 => {
+    let pool = await sqlite3.installOpfsSAHPoolVfs(poolOptions)
+    return new pool.OpfsSAHPoolDb('/app.sqlite')
+  },
+  { shared: 'app-db' }
+)
 ```
 
-Use `sqlite3.oo1.DB(':memory:')` for in-memory database. To run
-the database without worker (for instance, in tests), connect both sides
-by `MessageChannel`:
+[`opfs-sahpool` VFS]: https://sqlite.org/wasm/doc/trunk/persistence.md#vfs-opfs-sahpool
+
+#### Browser Tabs
+
+With `shared` only one tab opens the database, and other tabs send queries
+to it. When this tab is closed, the next one takes over. It is faster
+and works with `opfs-sahpool`.
+
+- If the database tab is closed, open transactions in other tabs fail
+  with `SQLITE_BUSY`. Retry them.
+- A query outside of transaction can be applied twice, if the database tab
+  was closed before the answer.
+- A transaction stalled for 5 seconds (for instance, by `confirm()`)
+  is rolled back with `SQLITE_BUSY`, if other queries wait.
+  See `transactionTimeout`.
+- Before deleting the database file, call `db.close()` and wait for
+  `navigator.locks.request('app-db', …)`.
+
+#### Tests
+
+Run the database without worker by `MessageChannel`:
 
 ```ts
 const { port1, port2 } = new MessageChannel()
 wasmWorker(sqlite3 => new sqlite3.oo1.DB(':memory:'), { port: port2 })
 export const db = openDb(wasmDriver(port1))
 ```
-
-`wasmWorker()` returns a promise, which rejects on the opening error
-(all queries will fail with it too). The worker and the page can send
-own messages through the same worker. The driver ignores them.
-
-[`opfs-sahpool` VFS]: https://sqlite.org/wasm/doc/trunk/persistence.md#vfs-opfs-sahpool
 
 #### Vite
 

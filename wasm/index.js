@@ -55,6 +55,10 @@ export function wasmDriver(port) {
 
     exec: query,
 
+    export() {
+      return request({ id: ++lastId, type: 'sql:export' })
+    },
+
     async persistent() {
       // In-memory and temporary databases have no file
       let [main] = await query('PRAGMA database_list', [])

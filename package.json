@@ -105,7 +105,7 @@
         "./index.js": "{ openDb, migrateIfNeeded }",
         "./wasm/index.js": "{ wasmDriver }"
       },
-      "limit": "1568 B"
+      "limit": "1578 B"
     }
   ],
   "engines": {

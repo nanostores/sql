@@ -14,6 +14,21 @@ export interface WasmPort {
   terminate?(): void
 }
 
+export interface WasmDriver extends Required<Driver> {
+  /**
+   * Export the whole database file. It works in any tab even with
+   * `opfs-sahpool` VFS, since the tab with the database makes the file.
+   *
+   * ```ts
+   * const file = await db.driver.export()
+   * const url = URL.createObjectURL(new Blob([file]))
+   * ```
+   *
+   * @returns SQLite database file.
+   */
+  export(): Promise<Uint8Array>
+}
+
 /**
  * Driver to SQLite in Web Worker with `wasmWorker()` from
  * `@nanostores/sql/wasm-worker`.
@@ -35,4 +50,4 @@ export interface WasmPort {
  *
  * @param port Worker with the database.
  */
-export function wasmDriver(port: WasmPort): Required<Driver>
+export function wasmDriver(port: WasmPort): WasmDriver
