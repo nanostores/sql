@@ -2,6 +2,13 @@
 
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.9.0
+
+- Added `shared` option to `wasmWorker()` for one connection for all tabs.
+- Added `transactionTimeout` option to `wasmWorker()`.
+- Added `export()` to `wasmDriver()`.
+- Added retries of opening locked database to `wasmWorker()`.
+
 ## 0.8.0
 
 - Added own low-level SQLite driver.
